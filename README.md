@@ -97,3 +97,34 @@ manager/
 ## 📄 License
 
 This project is licensed under the MIT License.
+
+## 🚀 Deployment
+
+1. **Setup Firebase**
+   ```bash
+   # Install Firebase CLI globally
+   npm install -g firebase-tools
+   
+   # Login to Firebase
+   firebase login
+   
+   # Initialize Firebase in your project
+   firebase init
+   ```
+
+2. **Configure Firebase**
+   - Select Hosting and Realtime Database
+   - Choose "manager-85af0" as your project
+   - Set build directory to `dist`
+   - Configure as single-page app
+
+3. **Deploy**
+   ```bash
+   # Build the project
+   npm run build
+   
+   # Deploy to Firebase
+   firebase deploy
+   ```
+
+Your app will be live at `https://manager-85af0.web.app`

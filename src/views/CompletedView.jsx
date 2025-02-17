@@ -3,9 +3,7 @@ import { format } from 'date-fns';
 import useTaskStore from '../stores/taskStore';
 import TaskCard from '../components/TaskCard';
 
-export default function CompletedView() {
-  const tasks = useTaskStore(state => state.tasks);
-  
+export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTaskDelete }) {
   const completedTasks = useMemo(() => {
     return tasks
       .filter(task => task.status === 'completed')

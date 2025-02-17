@@ -8,7 +8,7 @@ const taskSchema = z.object({
   rawText: z.string().min(1, 'Task description is required'),
 });
 
-export default function TaskCreate() {
+export default function TaskCreate({ onCreateTask }) {
   const addTask = useTaskStore(state => state.addTask);
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(taskSchema),
@@ -20,17 +20,20 @@ export default function TaskCreate() {
   const onSubmit = useCallback((data) => {
     const title = data.rawText.split(/[@#]/)[0].trim();
     
-    addTask({
+    const newTask = {
+      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       rawText: data.rawText,
       title,
       description: data.rawText,
-      // Set default quadrant values
-      priority: 4, // Not urgent
-      tags: ['important'], // Important
+      priority: 4,
+      tags: ['important'],
       scheduledFor: 'today'
-    });
+    };
+
+    addTask(newTask);
     reset();
-  }, [addTask, reset]);
+    onCreateTask(newTask);
+  }, [addTask, reset, onCreateTask]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.ctrlKey && e.key === 'Enter') {

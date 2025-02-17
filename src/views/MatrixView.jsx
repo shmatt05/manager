@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   DndContext,
   useSensor,
@@ -64,10 +64,6 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
     }
   };
 
-  const handleEditTask = (task) => {
-    onTaskEdit(task);
-  };
-
   return (
     <div
       ref={setNodeRef}
@@ -99,7 +95,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
               isLast={index === tasks.length - 1}
               onMoveUp={() => handleMoveTask(task.id, 'up')}
               onMoveDown={() => handleMoveTask(task.id, 'down')}
-              onEdit={handleEditTask}
+              onEdit={() => onTaskEdit(task)}
             />
           ))}
         </div>
@@ -110,18 +106,19 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
 
 export default function MatrixView() {
   const [activeId, setActiveId] = useState(null);
-  const tasks = useTaskStore(state => state.tasks);
-  const updateTask = useTaskStore(state => state.updateTask);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Start dragging after moving 5px
+        distance: 5,
       },
     })
   );
+
+  const tasks = useTaskStore(state => state.tasks);
+  const updateTask = useTaskStore(state => state.updateTask);
 
   const quadrantTasks = useMemo(() => {
     const sorted = {
@@ -156,51 +153,50 @@ export default function MatrixView() {
     return sorted;
   }, [tasks]);
 
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-  };
+  const handleDragStart = useCallback((event) => {
+    const { active } = event;
+    setActiveId(active.id);
+  }, []);
 
-  const handleDragEnd = (event) => {
-    setActiveId(null);
+  const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
-    if (!over) return;
+    setActiveId(null);
+
+    if (!over || !active) return;
 
     const task = tasks.find(t => t.id === active.id);
+    if (!task) return;
+
     const targetQuadrant = over.id;
-    
-    // Don't update if dropping in the same quadrant
     const currentQuadrant = getTaskQuadrant(task);
+    
     if (currentQuadrant === targetQuadrant) return;
 
-    let updates = {
+    const updatedTask = {
+      ...task,
       scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
     };
 
-    // Set priority and importance based on target quadrant
-    if (targetQuadrant !== 'tomorrow') {
-      switch (targetQuadrant) {
-        case 'urgent-important':
-          updates.priority = 1;
-          updates.tags = [...new Set([...task.tags, 'important'])];
-          break;
-        case 'not-urgent-important':
-          updates.priority = 4;
-          updates.tags = [...new Set([...task.tags, 'important'])];
-          break;
-        case 'urgent-not-important':
-          updates.priority = 2;
-          updates.tags = task.tags.filter(tag => tag !== 'important');
-          break;
-        case 'not-urgent-not-important':
-          updates.priority = 4;
-          updates.tags = task.tags.filter(tag => tag !== 'important');
-          break;
-      }
+    if (targetQuadrant === 'urgent-important') {
+      updatedTask.priority = 1;
+      updatedTask.tags = [...new Set([...task.tags, 'important'])];
+    } else if (targetQuadrant === 'not-urgent-important') {
+      updatedTask.priority = 4;
+      updatedTask.tags = [...new Set([...task.tags, 'important'])];
+    } else if (targetQuadrant === 'urgent-not-important') {
+      updatedTask.priority = 2;
+      updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+    } else if (targetQuadrant === 'not-urgent-not-important') {
+      updatedTask.priority = 4;
+      updatedTask.tags = task.tags.filter(tag => tag !== 'important');
     }
-    
-    console.log('Updating task:', task.id, 'with:', updates); // Debug log
-    updateTask(task.id, updates);
-  };
+
+    updateTask(updatedTask.id, updatedTask);
+  }, [tasks, updateTask]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
 
   // Helper function to determine current quadrant
   const getTaskQuadrant = (task) => {
@@ -221,8 +217,7 @@ export default function MatrixView() {
   };
 
   const handleTaskSave = (updatedTask) => {
-    // Update the task in your store
-    useTaskStore.getState().updateTask(updatedTask.id, updatedTask);
+    updateTask([...tasks.filter(t => t.id !== updatedTask.id), updatedTask]);
     setIsModalOpen(false);
     setSelectedTask(null);
   };
@@ -232,6 +227,7 @@ export default function MatrixView() {
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="h-full p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Priority Matrix</h1>
@@ -259,6 +255,7 @@ export default function MatrixView() {
           />
         </div>
       </div>
+
       <DragOverlay>
         {activeId ? (
           <TaskCard 
@@ -267,6 +264,7 @@ export default function MatrixView() {
           />
         ) : null}
       </DragOverlay>
+
       <TaskModal
         task={selectedTask}
         isOpen={isModalOpen}
