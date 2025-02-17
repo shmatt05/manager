@@ -21,7 +21,7 @@ const priorityColors = {
   5: 'bg-gray-100 border-gray-200',
 };
 
-export default function TaskCard({ task, className = '', onMoveUp, onMoveDown, isFirst, isLast }) {
+export default function TaskCard({ task, className = '', onMoveUp, onMoveDown, isFirst, isLast, onEdit, onDelete }) {
   const [showActions, setShowActions] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -102,6 +102,7 @@ export default function TaskCard({ task, className = '', onMoveUp, onMoveDown, i
         )}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
+        onClick={() => onEdit(task)}
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
@@ -156,6 +157,11 @@ export default function TaskCard({ task, className = '', onMoveUp, onMoveDown, i
                 </span>
               ))}
             </div>
+            {task.details && (
+              <div className="text-xs text-gray-500 mt-1">
+                <span className="mr-1">📝</span>Has details
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col items-end gap-1">
@@ -188,7 +194,10 @@ export default function TaskCard({ task, className = '', onMoveUp, onMoveDown, i
               </button>
             )}
             <button
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task.id);
+              }}
               className="p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
               title="Delete task"
             >

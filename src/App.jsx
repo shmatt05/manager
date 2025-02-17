@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import MatrixView from './views/MatrixView'
 import CompletedView from './views/CompletedView'
 import TaskCreate from './components/TaskCreate'
 import clsx from 'clsx'
+import TaskModal from './components/TaskModal'
+import { storage } from './utils/storage'
 
 const queryClient = new QueryClient()
 
@@ -14,6 +16,43 @@ const tabs = [
 
 function App() {
   const [activeTab, setActiveTab] = useState('matrix')
+  const [tasks, setTasks] = useState([])
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleTaskClick = (task) => {
+    setSelectedTask(task)
+    setIsModalOpen(true)
+  }
+
+  const handleTaskSave = (updatedTask) => {
+    setTasks(tasks.map(task => 
+      task.id === updatedTask.id ? updatedTask : task
+    ))
+    setIsModalOpen(false)
+    setSelectedTask(null)
+  }
+
+  const saveTasksToStorage = async (tasks) => {
+    await storage.saveData(tasks)
+  }
+
+  const loadTasksFromStorage = async () => {
+    const data = await storage.loadData()
+    if (data) {
+      setTasks(data)
+    }
+  }
+
+  // Load tasks from storage on mount
+  useEffect(() => {
+    loadTasksFromStorage();
+  }, []);
+
+  // Save tasks to storage whenever they change
+  useEffect(() => {
+    saveTasksToStorage(tasks);
+  }, [tasks]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -42,6 +81,16 @@ function App() {
         <main className="flex-1 overflow-auto">
           {activeTab === 'matrix' ? <MatrixView /> : <CompletedView />}
         </main>
+
+        <TaskModal
+          task={selectedTask}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            setSelectedTask(null)
+          }}
+          onSave={handleTaskSave}
+        />
       </div>
     </QueryClientProvider>
   )

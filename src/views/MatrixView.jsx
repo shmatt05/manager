@@ -11,6 +11,7 @@ import useTaskStore from '../stores/taskStore';
 import TaskCard from '../components/TaskCard';
 import clsx from 'clsx';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import TaskModal from '../components/TaskModal';
 
 const QUADRANTS = {
   'urgent-important': {
@@ -40,7 +41,7 @@ const QUADRANTS = {
   }
 };
 
-function Quadrant({ id, title, description, className, tasks }) {
+function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
@@ -61,6 +62,10 @@ function Quadrant({ id, title, description, className, tasks }) {
       [currentTasks[taskIndex + 1], currentTasks[taskIndex]];
       reorderTasks(currentTasks);
     }
+  };
+
+  const handleEditTask = (task) => {
+    onTaskEdit(task);
   };
 
   return (
@@ -94,6 +99,7 @@ function Quadrant({ id, title, description, className, tasks }) {
               isLast={index === tasks.length - 1}
               onMoveUp={() => handleMoveTask(task.id, 'up')}
               onMoveDown={() => handleMoveTask(task.id, 'down')}
+              onEdit={handleEditTask}
             />
           ))}
         </div>
@@ -106,6 +112,8 @@ export default function MatrixView() {
   const [activeId, setActiveId] = useState(null);
   const tasks = useTaskStore(state => state.tasks);
   const updateTask = useTaskStore(state => state.updateTask);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -207,6 +215,18 @@ export default function MatrixView() {
     return 'not-urgent-not-important';
   };
 
+  const handleEditTask = (task) => {
+    setSelectedTask(task);
+    setIsModalOpen(true);
+  };
+
+  const handleTaskSave = (updatedTask) => {
+    // Update the task in your store
+    useTaskStore.getState().updateTask(updatedTask.id, updatedTask);
+    setIsModalOpen(false);
+    setSelectedTask(null);
+  };
+
   return (
     <DndContext 
       sensors={sensors}
@@ -225,6 +245,7 @@ export default function MatrixView() {
               description={quadrant.description}
               className={quadrant.className}
               tasks={quadrantTasks[id]}
+              onTaskEdit={handleEditTask}
             />
           ))}
         </div>
@@ -234,6 +255,7 @@ export default function MatrixView() {
             id="tomorrow"
             {...QUADRANTS.tomorrow}
             tasks={quadrantTasks.tomorrow}
+            onTaskEdit={handleEditTask}
           />
         </div>
       </div>
@@ -245,6 +267,12 @@ export default function MatrixView() {
           />
         ) : null}
       </DragOverlay>
+      <TaskModal
+        task={selectedTask}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleTaskSave}
+      />
     </DndContext>
   );
 } 
