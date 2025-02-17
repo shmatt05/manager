@@ -12,11 +12,11 @@ import clsx from 'clsx';
 import { useSortable } from '@dnd-kit/sortable';
 
 const priorityColors = {
-  1: 'bg-red-100 border-red-200',
-  2: 'bg-orange-100 border-orange-200',
-  3: 'bg-yellow-100 border-yellow-200',
-  4: 'bg-blue-100 border-blue-200',
-  5: 'bg-gray-100 border-gray-200',
+  1: 'bg-red-100 border-red-200',     // Do (Urgent & Important)
+  2: 'bg-yellow-100 border-yellow-200', // Delegate (Urgent & Not Important)
+  3: 'bg-blue-100 border-blue-200',    // Schedule (Not Urgent & Important)
+  4: 'bg-gray-100 border-gray-200',    // Eliminate (Not Urgent & Not Important)
+  5: 'bg-purple-100 border-purple-200', // Tomorrow
 };
 
 export default function TaskCard({ 
@@ -50,6 +50,16 @@ export default function TaskCard({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 100 : 1,
   };
+
+  console.log('TaskCard rendering with priority:', {
+    taskId: task.id,
+    priority: task.priority,
+    quadrant: task.tags.includes('important') 
+      ? (task.priority <= 2 ? 'urgent-important' : 'not-urgent-important')
+      : (task.priority <= 2 ? 'urgent-not-important' : 'not-urgent-not-important'),
+    color: priorityColors[task.priority],
+    tags: task.tags
+  });
 
   return (
     <div
@@ -133,7 +143,7 @@ export default function TaskCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onComplete();
+                onComplete(task);
               }}
               className="p-1.5 rounded-full bg-blue-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-sm"
               title="Restore task"
@@ -144,7 +154,7 @@ export default function TaskCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onComplete();
+                onComplete(task);
               }}
               className="p-1.5 rounded-full bg-green-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-green-600 shadow-sm"
               title="Complete task"

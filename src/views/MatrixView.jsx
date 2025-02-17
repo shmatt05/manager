@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   DndContext,
   useSensor,
@@ -6,12 +6,18 @@ import {
   PointerSensor,
   useDroppable,
   DragOverlay,
+  closestCenter,
 } from '@dnd-kit/core';
 import useTaskStore from '../stores/taskStore';
 import TaskCard from '../components/TaskCard';
 import clsx from 'clsx';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import TaskModal from '../components/TaskModal';
+import { auth } from '../firebase';
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+
+const isFirebaseEnabled = import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true';
 
 const QUADRANTS = {
   'urgent-important': {
@@ -41,28 +47,10 @@ const QUADRANTS = {
   }
 };
 
-function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
+function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTaskComplete, onTaskDelete }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
-
-  const reorderTasks = useTaskStore(state => state.reorderTasks);
-  const allTasks = useTaskStore(state => state.tasks);
-
-  const handleMoveTask = (taskId, direction) => {
-    const currentTasks = [...allTasks];
-    const taskIndex = currentTasks.findIndex(t => t.id === taskId);
-    
-    if (direction === 'up' && taskIndex > 0) {
-      [currentTasks[taskIndex - 1], currentTasks[taskIndex]] = 
-      [currentTasks[taskIndex], currentTasks[taskIndex - 1]];
-      reorderTasks(currentTasks);
-    } else if (direction === 'down' && taskIndex < currentTasks.length - 1) {
-      [currentTasks[taskIndex], currentTasks[taskIndex + 1]] = 
-      [currentTasks[taskIndex + 1], currentTasks[taskIndex]];
-      reorderTasks(currentTasks);
-    }
-  };
 
   return (
     <div
@@ -93,9 +81,9 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit }) {
               className="mb-2 last:mb-0"
               isFirst={index === 0}
               isLast={index === tasks.length - 1}
-              onMoveUp={() => handleMoveTask(task.id, 'up')}
-              onMoveDown={() => handleMoveTask(task.id, 'down')}
               onEdit={() => onTaskEdit(task)}
+              onComplete={() => onTaskComplete(task)}
+              onDelete={() => onTaskDelete(task.id)}
             />
           ))}
         </div>
@@ -108,6 +96,8 @@ export default function MatrixView() {
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -121,6 +111,7 @@ export default function MatrixView() {
   const updateTask = useTaskStore(state => state.updateTask);
 
   const quadrantTasks = useMemo(() => {
+    console.log('All tasks:', tasks);
     const sorted = {
       'urgent-important': [],
       'not-urgent-important': [],
@@ -130,9 +121,16 @@ export default function MatrixView() {
     };
 
     tasks
-      // Filter out completed tasks
       .filter(task => task.status !== 'completed')
       .forEach(task => {
+        console.log('Processing task:', {
+          id: task.id,
+          priority: task.priority,
+          isUrgent: task.priority <= 2,
+          isImportant: task.tags.includes('important'),
+          tags: task.tags
+        });
+
         if (task.scheduledFor === 'tomorrow') {
           sorted['tomorrow'].push(task);
           return;
@@ -146,6 +144,12 @@ export default function MatrixView() {
           !isUrgent && isImportant ? 'not-urgent-important' :
           isUrgent && !isImportant ? 'urgent-not-important' :
           'not-urgent-not-important';
+        
+        console.log('Assigned to quadrant:', {
+          taskId: task.id,
+          quadrant,
+          priority: task.priority
+        });
         
         sorted[quadrant].push(task);
       });
@@ -167,32 +171,84 @@ export default function MatrixView() {
     const task = tasks.find(t => t.id === active.id);
     if (!task) return;
 
+    // If we're dropping on a task (reordering)
+    if (over.data?.current?.sortable) {
+      const oldIndex = tasks.findIndex(t => t.id === active.id);
+      const newIndex = tasks.findIndex(t => t.id === over.id);
+      
+      if (oldIndex !== newIndex) {
+        const updatedTasks = arrayMove(tasks, oldIndex, newIndex);
+        
+        if (isFirebaseEnabled && auth.currentUser) {
+          const db = getFirestore();
+          const batch = updatedTasks.map((task, index) => 
+            setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
+              ...task,
+              order: index,
+              userId: auth.currentUser.uid,
+              updatedAt: new Date().toISOString()
+            })
+          );
+          Promise.all(batch);
+        } else {
+          localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+          useTaskStore.getState().setTasks(updatedTasks);
+        }
+        return;
+      }
+    }
+
+    // If we're dropping on a quadrant
     const targetQuadrant = over.id;
     const currentQuadrant = getTaskQuadrant(task);
     
-    if (currentQuadrant === targetQuadrant) return;
+    if (currentQuadrant !== targetQuadrant) {
+      const updatedTask = {
+        ...task,
+        scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
+      };
 
-    const updatedTask = {
-      ...task,
-      scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
-    };
+      // Log before updating the task
+      console.log('Moving task between quadrants:', {
+        taskId: task.id,
+        from: currentQuadrant,
+        to: targetQuadrant,
+        oldPriority: task.priority,
+        newPriority: updatedTask.priority
+      });
 
-    if (targetQuadrant === 'urgent-important') {
-      updatedTask.priority = 1;
-      updatedTask.tags = [...new Set([...task.tags, 'important'])];
-    } else if (targetQuadrant === 'not-urgent-important') {
-      updatedTask.priority = 4;
-      updatedTask.tags = [...new Set([...task.tags, 'important'])];
-    } else if (targetQuadrant === 'urgent-not-important') {
-      updatedTask.priority = 2;
-      updatedTask.tags = task.tags.filter(tag => tag !== 'important');
-    } else if (targetQuadrant === 'not-urgent-not-important') {
-      updatedTask.priority = 4;
-      updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+      if (targetQuadrant === 'urgent-important') {
+        updatedTask.priority = 1;  // Red - Do
+        updatedTask.tags = [...new Set([...task.tags, 'important'])];
+      } else if (targetQuadrant === 'not-urgent-important') {
+        updatedTask.priority = 3;  // Blue - Schedule
+        updatedTask.tags = [...new Set([...task.tags, 'important'])];
+      } else if (targetQuadrant === 'urgent-not-important') {
+        updatedTask.priority = 2;  // Yellow - Delegate
+        updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+      } else if (targetQuadrant === 'not-urgent-not-important') {
+        updatedTask.priority = 4;  // Gray - Eliminate
+        updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+      } else if (targetQuadrant === 'tomorrow') {
+        updatedTask.priority = 5;  // Purple - Tomorrow
+      }
+
+      if (isFirebaseEnabled && auth.currentUser) {
+        const db = getFirestore();
+        const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`);
+        setDoc(taskRef, {
+          ...updatedTask,
+          userId: auth.currentUser.uid,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+        const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
+        localStorage.setItem('tasks', JSON.stringify(newTasks));
+        useTaskStore.getState().setTasks(newTasks);
+      }
     }
-
-    updateTask(updatedTask.id, updatedTask);
-  }, [tasks, updateTask]);
+  }, [tasks, isFirebaseEnabled]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
@@ -222,9 +278,79 @@ export default function MatrixView() {
     setSelectedTask(null);
   };
 
+  const handleTaskComplete = useCallback(async (task) => {
+    const updatedTask = {
+      ...task,
+      status: task.status === 'completed' ? 'active' : 'completed',
+      completedAt: task.status === 'completed' ? null : new Date().toISOString()
+    };
+
+    if (isFirebaseEnabled && auth.currentUser) {
+      const db = getFirestore();
+      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`);
+      await setDoc(taskRef, {
+        ...updatedTask,
+        userId: auth.currentUser.uid,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
+      localStorage.setItem('tasks', JSON.stringify(newTasks));
+      useTaskStore.getState().setTasks(newTasks);
+    }
+  }, [isFirebaseEnabled]);
+
+  const handleTaskDelete = useCallback(async (taskId) => {
+    // Add confirmation dialog
+    if (!window.confirm('Are you sure you want to delete this task?')) {
+      return;
+    }
+
+    if (isFirebaseEnabled && auth.currentUser) {
+      const db = getFirestore();
+      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${taskId}`);
+      await deleteDoc(taskRef);
+    } else {
+      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const newTasks = savedTasks.filter(t => t.id !== taskId);
+      localStorage.setItem('tasks', JSON.stringify(newTasks));
+      useTaskStore.getState().setTasks(newTasks);
+    }
+  }, [isFirebaseEnabled]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD || !auth?.currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    const db = getFirestore();
+    const tasksRef = collection(db, `users/${auth.currentUser.uid}/tasks`);
+    
+    const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
+      const tasksData = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      }));
+      useTaskStore.getState().setTasks(tasksData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [auth?.currentUser?.uid]);
+
+  if (loading) {
+    return <div>Loading tickets...</div>;
+  }
+
   return (
     <DndContext 
       sensors={sensors}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
@@ -242,6 +368,8 @@ export default function MatrixView() {
               className={quadrant.className}
               tasks={quadrantTasks[id]}
               onTaskEdit={handleEditTask}
+              onTaskComplete={handleTaskComplete}
+              onTaskDelete={handleTaskDelete}
             />
           ))}
         </div>
@@ -252,6 +380,8 @@ export default function MatrixView() {
             {...QUADRANTS.tomorrow}
             tasks={quadrantTasks.tomorrow}
             onTaskEdit={handleEditTask}
+            onTaskComplete={handleTaskComplete}
+            onTaskDelete={handleTaskDelete}
           />
         </div>
       </div>
@@ -273,4 +403,4 @@ export default function MatrixView() {
       />
     </DndContext>
   );
-} 
+}

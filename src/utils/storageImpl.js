@@ -1,44 +1,35 @@
-const getFirebaseConfig = () => ({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
-  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
-});
+import { auth, database } from '../firebase';
+import { ref, set, get } from 'firebase/database';
 
 const createFirebaseStore = async () => {
-  const [
-    { initializeApp }, 
-    { getAuth }, 
-    { getDatabase, ref, set, get }
-  ] = await Promise.all([
-    import('firebase/app'),
-    import('firebase/auth'),
-    import('firebase/database')
-  ]);
-
-  const app = initializeApp(getFirebaseConfig());
-  const auth = getAuth(app);
-  const database = getDatabase(app);
-
-  return {
+  console.log('[StorageImpl] Creating Firebase store');
+  
+  const store = {
     saveData: async (data) => {
-      if (!auth.currentUser) {
+      console.log('[StorageImpl] Saving data, auth state:', auth?.currentUser?.email);
+      if (!auth?.currentUser) {
+        console.log('[StorageImpl] No user, using local storage');
         return localStore.saveData(data);
       }
       const tasksRef = ref(database, `users/${auth.currentUser.uid}/tasks`);
       await set(tasksRef, data);
+      console.log('[StorageImpl] Data saved to Firebase');
     },
     loadData: async () => {
-      if (!auth.currentUser) {
+      console.log('[StorageImpl] Loading data, auth state:', auth?.currentUser?.email);
+      if (!auth?.currentUser) {
+        console.log('[StorageImpl] No user, using local storage');
         return localStore.loadData();
       }
       const tasksRef = ref(database, `users/${auth.currentUser.uid}/tasks`);
       const snapshot = await get(tasksRef);
+      console.log('[StorageImpl] Data loaded from Firebase');
       return snapshot.val() || null;
-    },
-    auth
+    }
   };
+
+  console.log('[StorageImpl] Store created');
+  return store;
 };
 
 export default createFirebaseStore; 

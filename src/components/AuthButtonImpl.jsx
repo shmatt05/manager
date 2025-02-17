@@ -1,58 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function AuthButtonImpl() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AuthButtonImpl = () => {
+  const { user, signIn, signOut } = useAuth();
 
-  useEffect(() => {
-    const initAuth = async () => {
-      const { storage } = await import('../utils/storage');
-      if (storage.auth) {
-        storage.auth.onAuthStateChanged((user) => {
-          setUser(user);
-          setLoading(false);
-        });
-      }
-    };
+  console.log('[AuthButtonImpl] Component mounted');
+  console.log('[AuthButtonImpl] Auth state:', {
+    hasUser: !!user,
+    userEmail: user?.email,
+    hasSignIn: typeof signIn === 'function',
+    hasSignOut: typeof signOut === 'function',
+  });
 
-    initAuth();
-  }, []);
+  if (!signIn || !signOut) {
+    console.log('[AuthButtonImpl] Missing auth methods');
+    return null;
+  }
 
-  const handleLogin = async () => {
-    const { storage } = await import('../utils/storage');
-    if (storage.auth) {
-      const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(storage.auth, provider);
+  const handleSignIn = async () => {
+    console.log('[AuthButtonImpl] Attempting sign in');
+    try {
+      await signIn();
+      console.log('[AuthButtonImpl] Sign in successful');
+    } catch (error) {
+      console.error('[AuthButtonImpl] Sign in error:', error);
     }
   };
 
-  const handleLogout = async () => {
-    const { storage } = await import('../utils/storage');
-    if (storage.auth) {
-      await storage.auth.signOut();
+  const handleSignOut = async () => {
+    console.log('[AuthButtonImpl] Attempting sign out');
+    try {
+      await signOut();
+      console.log('[AuthButtonImpl] Sign out successful');
+    } catch (error) {
+      console.error('[AuthButtonImpl] Sign out error:', error);
     }
   };
 
-  if (loading) return null;
-
-  return (
-    <div className="px-4 py-2">
-      {user ? (
-        <button 
-          onClick={handleLogout}
-          className="text-sm text-gray-600 hover:text-gray-800"
-        >
-          Sign Out
-        </button>
-      ) : (
-        <button 
-          onClick={handleLogin}
-          className="text-sm text-blue-600 hover:text-blue-800"
-        >
-          Sign In with Google
-        </button>
-      )}
-    </div>
+  return user ? (
+    <button onClick={handleSignOut}>
+      Sign Out ({user.email})
+    </button>
+  ) : (
+    <button onClick={handleSignIn}>
+      Sign In
+    </button>
   );
-} 
+};
+
+export default AuthButtonImpl; 

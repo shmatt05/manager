@@ -53,6 +53,8 @@ const useTaskStore = create(
       })),
 
       reorderTasks: (tasks) => set({ tasks }),
+
+      setTasks: (tasks) => set({ tasks }),
     }),
     {
       name: 'taskflow-storage',
