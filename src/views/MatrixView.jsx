@@ -79,8 +79,6 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
               key={task.id}
               task={task}
               className="mb-2 last:mb-0"
-              isFirst={index === 0}
-              isLast={index === tasks.length - 1}
               onEdit={() => onTaskEdit(task)}
               onComplete={() => onTaskComplete(task)}
               onDelete={() => onTaskDelete(task.id)}
@@ -92,7 +90,13 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
   );
 }
 
-export default function MatrixView() {
+export default function MatrixView({ 
+  tasks, 
+  onTaskClick, 
+  onTaskUpdate,
+  onTaskDelete, 
+  onTaskComplete 
+}) {
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,11 +111,9 @@ export default function MatrixView() {
     })
   );
 
-  const tasks = useTaskStore(state => state.tasks);
   const updateTask = useTaskStore(state => state.updateTask);
 
   const quadrantTasks = useMemo(() => {
-    console.log('All tasks:', tasks);
     const sorted = {
       'urgent-important': [],
       'not-urgent-important': [],
@@ -123,14 +125,6 @@ export default function MatrixView() {
     tasks
       .filter(task => task.status !== 'completed')
       .forEach(task => {
-        console.log('Processing task:', {
-          id: task.id,
-          priority: task.priority,
-          isUrgent: task.priority <= 2,
-          isImportant: task.tags.includes('important'),
-          tags: task.tags
-        });
-
         if (task.scheduledFor === 'tomorrow') {
           sorted['tomorrow'].push(task);
           return;
@@ -144,12 +138,6 @@ export default function MatrixView() {
           !isUrgent && isImportant ? 'not-urgent-important' :
           isUrgent && !isImportant ? 'urgent-not-important' :
           'not-urgent-not-important';
-        
-        console.log('Assigned to quadrant:', {
-          taskId: task.id,
-          quadrant,
-          priority: task.priority
-        });
         
         sorted[quadrant].push(task);
       });
@@ -193,6 +181,7 @@ export default function MatrixView() {
         } else {
           localStorage.setItem('tasks', JSON.stringify(updatedTasks));
           useTaskStore.getState().setTasks(updatedTasks);
+          onTaskUpdate(updatedTasks);
         }
         return;
       }
@@ -207,15 +196,6 @@ export default function MatrixView() {
         ...task,
         scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
       };
-
-      // Log before updating the task
-      console.log('Moving task between quadrants:', {
-        taskId: task.id,
-        from: currentQuadrant,
-        to: targetQuadrant,
-        oldPriority: task.priority,
-        newPriority: updatedTask.priority
-      });
 
       if (targetQuadrant === 'urgent-important') {
         updatedTask.priority = 1;  // Red - Do
@@ -248,7 +228,7 @@ export default function MatrixView() {
         useTaskStore.getState().setTasks(newTasks);
       }
     }
-  }, [tasks, isFirebaseEnabled]);
+  }, [tasks, isFirebaseEnabled, onTaskUpdate]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
@@ -272,34 +252,30 @@ export default function MatrixView() {
     setIsModalOpen(true);
   };
 
-  const handleTaskSave = (updatedTask) => {
-    updateTask([...tasks.filter(t => t.id !== updatedTask.id), updatedTask]);
-    setIsModalOpen(false);
-    setSelectedTask(null);
-  };
-
-  const handleTaskComplete = useCallback(async (task) => {
-    const updatedTask = {
-      ...task,
-      status: task.status === 'completed' ? 'active' : 'completed',
-      completedAt: task.status === 'completed' ? null : new Date().toISOString()
-    };
-
-    if (isFirebaseEnabled && auth.currentUser) {
-      const db = getFirestore();
-      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`);
-      await setDoc(taskRef, {
-        ...updatedTask,
-        userId: auth.currentUser.uid,
-        updatedAt: new Date().toISOString()
-      });
-    } else {
-      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
-      localStorage.setItem('tasks', JSON.stringify(newTasks));
-      useTaskStore.getState().setTasks(newTasks);
+  const handleTaskSave = useCallback(async (updatedTask) => {
+    try {
+      if (isFirebaseEnabled && auth.currentUser) {
+        const db = getFirestore();
+        const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${updatedTask.id}`);
+        await setDoc(taskRef, {
+          ...updatedTask,
+          userId: auth.currentUser.uid,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+        const newTasks = savedTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+        localStorage.setItem('tasks', JSON.stringify(newTasks));
+        useTaskStore.getState().setTasks(newTasks);
+        onTaskUpdate(newTasks);
+      }
+      
+      setIsModalOpen(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-  }, [isFirebaseEnabled]);
+  }, [isFirebaseEnabled, onTaskUpdate]);
 
   const handleTaskDelete = useCallback(async (taskId) => {
     // Add confirmation dialog
@@ -368,7 +344,7 @@ export default function MatrixView() {
               className={quadrant.className}
               tasks={quadrantTasks[id]}
               onTaskEdit={handleEditTask}
-              onTaskComplete={handleTaskComplete}
+              onTaskComplete={onTaskComplete}
               onTaskDelete={handleTaskDelete}
             />
           ))}
@@ -380,7 +356,7 @@ export default function MatrixView() {
             {...QUADRANTS.tomorrow}
             tasks={quadrantTasks.tomorrow}
             onTaskEdit={handleEditTask}
-            onTaskComplete={handleTaskComplete}
+            onTaskComplete={onTaskComplete}
             onTaskDelete={handleTaskDelete}
           />
         </div>

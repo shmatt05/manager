@@ -5,8 +5,7 @@ import TaskCard from '../components/TaskCard';
 import { getFirestore, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { auth } from '../firebase';
 
-export default function CompletedView({ onTaskClick }) {
-  const tasks = useTaskStore(state => state.tasks);
+export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTaskDelete, onTaskComplete }) {
   const isProd = import.meta.env.PROD;
 
   const completedTasks = useMemo(() => {
@@ -29,43 +28,25 @@ export default function CompletedView({ onTaskClick }) {
     return grouped;
   }, [completedTasks]);
 
-  const handleTaskComplete = async (task) => {
-    const updatedTask = {
-      ...task,
-      status: 'active',
-      completedAt: null,
-      updatedAt: new Date().toISOString()
-    };
-
-    if (isProd && auth.currentUser) {
-      const db = getFirestore();
-      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`);
-      await setDoc(taskRef, {
-        ...updatedTask,
-        userId: auth.currentUser.uid
-      });
-    } else {
-      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
-      localStorage.setItem('tasks', JSON.stringify(newTasks));
-      useTaskStore.getState().setTasks(newTasks);
-    }
-  };
-
   const handleTaskDelete = async (taskId) => {
     if (!window.confirm('Are you sure you want to delete this task?')) {
       return;
     }
 
-    if (isProd && auth.currentUser) {
-      const db = getFirestore();
-      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${taskId}`);
-      await deleteDoc(taskRef);
-    } else {
-      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const newTasks = savedTasks.filter(t => t.id !== taskId);
-      localStorage.setItem('tasks', JSON.stringify(newTasks));
-      useTaskStore.getState().setTasks(newTasks);
+    try {
+      if (isProd && auth.currentUser) {
+        const db = getFirestore();
+        const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${taskId}`);
+        await deleteDoc(taskRef);
+      } else {
+        const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+        const newTasks = savedTasks.filter(t => t.id !== taskId);
+        localStorage.setItem('tasks', JSON.stringify(newTasks));
+        useTaskStore.getState().setTasks(newTasks);
+        onTaskUpdate(newTasks);
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
     }
   };
 
@@ -85,8 +66,8 @@ export default function CompletedView({ onTaskClick }) {
                 task={task}
                 className="opacity-75 hover:opacity-100 transition-opacity"
                 onEdit={() => onTaskClick(task)}
-                onComplete={handleTaskComplete}
-                onDelete={() => handleTaskDelete(task.id)}
+                onComplete={onTaskComplete}
+                onDelete={() => onTaskDelete(task.id)}
               />
             ))}
           </div>

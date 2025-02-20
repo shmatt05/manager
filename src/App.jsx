@@ -68,6 +68,32 @@ function AppContent() {
     await saveToStorage(updatedTasks)
   }
 
+  const handleTaskComplete = async (task) => {
+    const updatedTask = {
+      ...task,
+      status: task.status === 'completed' ? 'active' : 'completed',
+      completedAt: task.status === 'completed' ? null : new Date().toISOString()
+    };
+
+    try {
+      if (isProd && user) {
+        const db = getFirestore();
+        const taskRef = doc(db, `users/${user.uid}/tasks/${task.id}`);
+        await setDoc(taskRef, {
+          ...updatedTask,
+          userId: user.uid,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        const newTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
+        localStorage.setItem('tasks', JSON.stringify(newTasks));
+        setTasks(newTasks);
+      }
+    } catch (error) {
+      console.error('Error completing task:', error);
+    }
+  };
+
   useEffect(() => {
     if (isProd && user) {
       const db = getFirestore()
@@ -132,6 +158,7 @@ function AppContent() {
             onTaskClick={handleTaskClick}
             onTaskUpdate={saveToStorage}
             onTaskDelete={handleDeleteTask}
+            onTaskComplete={handleTaskComplete}
           />
         ) : (
           <CompletedView 
@@ -139,6 +166,7 @@ function AppContent() {
             onTaskClick={handleTaskClick}
             onTaskUpdate={saveToStorage}
             onTaskDelete={handleDeleteTask}
+            onTaskComplete={handleTaskComplete}
           />
         )}
       </main>

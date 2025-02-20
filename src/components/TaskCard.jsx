@@ -22,10 +22,6 @@ const priorityColors = {
 export default function TaskCard({ 
   task = {},
   className = '', 
-  onMoveUp = () => {}, 
-  onMoveDown = () => {}, 
-  isFirst = false, 
-  isLast = false, 
   onEdit = () => {}, 
   onDelete = () => {},
   onComplete = () => {} 
@@ -51,16 +47,6 @@ export default function TaskCard({
     zIndex: isDragging ? 100 : 1,
   };
 
-  console.log('TaskCard rendering with priority:', {
-    taskId: task.id,
-    priority: task.priority,
-    quadrant: task.tags.includes('important') 
-      ? (task.priority <= 2 ? 'urgent-important' : 'not-urgent-important')
-      : (task.priority <= 2 ? 'urgent-not-important' : 'not-urgent-not-important'),
-    color: priorityColors[task.priority],
-    tags: task.tags
-  });
-
   return (
     <div
       ref={setNodeRef}
@@ -79,37 +65,6 @@ export default function TaskCard({
       onClick={() => onEdit(task)}
     >
       <div className="flex items-start gap-2">
-        <div className="flex flex-col mt-1 -ml-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveUp();
-            }}
-            disabled={isFirst}
-            className={clsx(
-              "p-0.5 rounded hover:bg-black/5",
-              isFirst && "opacity-30 cursor-not-allowed"
-            )}
-            title="Move up"
-          >
-            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveDown();
-            }}
-            disabled={isLast}
-            className={clsx(
-              "p-0.5 rounded hover:bg-black/5",
-              isLast && "opacity-30 cursor-not-allowed"
-            )}
-            title="Move down"
-          >
-            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-          </button>
-        </div>
-        
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-sm truncate">
             {task.title || task.rawText || ''}
