@@ -3,10 +3,36 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import useTaskStore from '../stores/taskStore';
+import { parse, set, addDays } from 'date-fns';
 
 const taskSchema = z.object({
   rawText: z.string().min(1, 'Task description is required'),
 });
+
+// Helper function to parse time string
+const parseTimeString = (timeStr) => {
+  try {
+    // Remove @ symbol and trim
+    timeStr = timeStr.replace('@', '').trim().toLowerCase();
+    
+    // Handle special cases
+    if (timeStr === 'noon') timeStr = '12pm';
+    if (timeStr === 'midnight') timeStr = '12am';
+
+    // Try to parse the time
+    const parsedTime = parse(timeStr, 'ha', new Date());
+    if (isNaN(parsedTime.getTime())) {
+      // Try alternative format (h:mma)
+      const parsedTimeWithMinutes = parse(timeStr, 'h:mma', new Date());
+      if (isNaN(parsedTimeWithMinutes.getTime())) return null;
+      return parsedTimeWithMinutes;
+    }
+    return parsedTime;
+  } catch (error) {
+    console.error('Error parsing time:', error);
+    return null;
+  }
+};
 
 export default function TaskCreate({ onCreateTask }) {
   const addTask = useTaskStore(state => state.addTask);
@@ -18,10 +44,33 @@ export default function TaskCreate({ onCreateTask }) {
   });
 
   const onSubmit = useCallback((data) => {
+    // Extract time using regex
+    const timeMatch = data.rawText.match(/@([^\s#]+)/);
+    let dueDate = null;
+
+    if (timeMatch) {
+      const parsedTime = parseTimeString(timeMatch[0]);
+      if (parsedTime) {
+        const now = new Date();
+        // If the time is earlier than now, assume it's for tomorrow
+        dueDate = set(now, {
+          hours: parsedTime.getHours(),
+          minutes: parsedTime.getMinutes(),
+          seconds: 0,
+          milliseconds: 0
+        });
+        
+        if (dueDate < now) {
+          dueDate = addDays(dueDate, 1);
+        }
+      }
+    }
+
+    // Get title (everything before @ or #)
     const title = data.rawText.split(/[@#]/)[0].trim();
     
     // Determine initial priority based on tags
-    const tags = ['important']; // Default tags
+    const tags = ['important'];
     const isUrgent = data.rawText.toLowerCase().includes('#urgent');
     if (isUrgent) {
       tags.push('urgent');
@@ -30,13 +79,13 @@ export default function TaskCreate({ onCreateTask }) {
     // Set priority based on urgency and importance
     let priority;
     if (isUrgent && tags.includes('important')) {
-      priority = 1;  // Urgent & Important (Do) - Red
+      priority = 1;
     } else if (isUrgent && !tags.includes('important')) {
-      priority = 2;  // Urgent & Not Important (Delegate) - Yellow
+      priority = 2;
     } else if (!isUrgent && tags.includes('important')) {
-      priority = 3;  // Not Urgent & Important (Schedule) - Blue
+      priority = 3;
     } else {
-      priority = 4;  // Not Urgent & Not Important (Eliminate) - Gray
+      priority = 4;
     }
     
     const newTask = {
@@ -48,7 +97,8 @@ export default function TaskCreate({ onCreateTask }) {
       tags,
       scheduledFor: 'today',
       status: 'todo',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      dueDate: dueDate ? dueDate.toISOString() : null
     };
 
     console.log('Creating new task:', newTask);

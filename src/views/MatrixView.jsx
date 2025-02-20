@@ -169,6 +169,7 @@ export default function MatrixView({
         
         if (isFirebaseEnabled && auth.currentUser) {
           const db = getFirestore();
+          // Create a batch operation
           const batch = updatedTasks.map((task, index) => 
             setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
               ...task,
@@ -177,7 +178,13 @@ export default function MatrixView({
               updatedAt: new Date().toISOString()
             })
           );
-          Promise.all(batch);
+          // Wait for all updates to complete
+          Promise.all(batch).then(() => {
+            // Update local state after Firestore confirms the changes
+            onTaskUpdate(updatedTasks);
+          }).catch(error => {
+            console.error('Error updating task order:', error);
+          });
         } else {
           localStorage.setItem('tasks', JSON.stringify(updatedTasks));
           useTaskStore.getState().setTasks(updatedTasks);
@@ -226,9 +233,10 @@ export default function MatrixView({
         const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
         localStorage.setItem('tasks', JSON.stringify(newTasks));
         useTaskStore.getState().setTasks(newTasks);
+        onTaskUpdate(newTasks);
       }
     }
-  }, [tasks, isFirebaseEnabled, onTaskUpdate]);
+  }, [tasks, isFirebaseEnabled, onTaskUpdate, auth?.currentUser]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
