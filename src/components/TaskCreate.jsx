@@ -72,6 +72,46 @@ const createTask = (rawText) => {
   };
 };
 
+const parseTaskText = (text) => {
+  const tags = [];
+  const title = text.replace(/#(\w+)/g, (match, tag) => {
+    tags.push(tag);
+    return '';
+  }).trim();
+
+  // Map special tags to quadrants
+  const quadrantTags = {
+    'do': { priority: 1, tags: ['important'] },         // urgent-important
+    'schedule': { priority: 3, tags: ['important'] },   // not-urgent-important
+    'delegate': { priority: 2, tags: [] },              // urgent-not-important
+    'eliminate': { priority: 4, tags: [] },             // not-urgent-not-important
+    'tomorrow': { scheduledFor: 'tomorrow', priority: 5 }
+  };
+
+  let priority = 4;
+  let scheduledFor = 'today';
+  let finalTags = [...new Set(tags)];
+
+  // Check for quadrant tags
+  for (const tag of tags) {
+    if (quadrantTags[tag]) {
+      const quadrant = quadrantTags[tag];
+      priority = quadrant.priority;
+      scheduledFor = quadrant.scheduledFor || scheduledFor;
+      if (quadrant.tags) {
+        finalTags = [...new Set([...finalTags, ...quadrant.tags])];
+      }
+    }
+  }
+
+  return {
+    title,
+    tags: finalTags,
+    priority,
+    scheduledFor
+  };
+};
+
 const TaskCreate = ({ onCreateTask }) => {
   const [taskText, setTaskText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -79,12 +119,25 @@ const TaskCreate = ({ onCreateTask }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const text = taskText.trim();
+    const text = inputRef.current.value.trim();
     if (!text) return;
 
-    const task = createTask(text);
+    const { title, tags, priority, scheduledFor } = parseTaskText(text);
+    
+    const task = {
+      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title,
+      description: text,
+      tags,
+      priority,
+      status: 'todo',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      scheduledFor
+    };
+
     onCreateTask(task);
-    setTaskText('');
+    inputRef.current.value = '';
     setIsOpen(false);
   };
 
