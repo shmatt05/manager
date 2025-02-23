@@ -73,7 +73,7 @@ function AppContent() {
         updatedAt: new Date().toISOString()
       };
 
-      // Calculate changes for all fields including title and details
+      // Calculate changes
       const changes = [];
       ['title', 'details', 'priority', 'status', 'tags', 'scheduledFor'].forEach(key => {
         const oldValue = oldTask[key];
@@ -96,6 +96,11 @@ function AppContent() {
             setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
           ]);
         } else {
+          // Update both tasks and history in localStorage
+          const newTasks = tasks.map(task => 
+            task.id === updatedTask.id ? mergedTask : task
+          );
+          localStorage.setItem('tasks', JSON.stringify(newTasks));
           saveHistoryToLocalStorage(historyEntry);
         }
       }

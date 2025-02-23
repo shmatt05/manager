@@ -1,22 +1,39 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 
 const TicketHistory = ({ ticketId }) => {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
+  const { user } = useAuth();
+  const isProd = import.meta.env.PROD;
 
   useEffect(() => {
-    // For now, let's mock some history data
-    // Later we'll integrate with your actual history storage
-    setHistory([
-      {
-        timestamp: new Date(),
-        action: 'CREATE',
-        userId: { name: 'User' },
-        ticketData: { title: 'Task Created' }
+    if (!ticketId) return;
+
+    // Get all history and filter for this ticket
+    const loadHistory = () => {
+      try {
+        const allHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
+        // Filter history for this specific ticket
+        const ticketHistory = allHistory.filter(entry => 
+          entry.ticketData.id === ticketId
+        );
+        console.log('Ticket specific history:', ticketHistory);
+        setHistory(ticketHistory);
+      } catch (error) {
+        console.error('Error loading ticket history:', error);
+        setError('Failed to load history');
       }
-    ]);
-  }, [ticketId]);
+    };
+
+    loadHistory();
+
+    // If in production, set up real-time listener
+    if (isProd && user) {
+      // ... existing Firestore code ...
+    }
+  }, [ticketId, user, isProd]);
 
   const getActionColor = (action) => {
     switch (action) {
@@ -29,38 +46,43 @@ const TicketHistory = ({ ticketId }) => {
     }
   };
 
+  if (error) {
+    return <div className="text-red-600">{error}</div>;
+  }
+
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">Task History</h2>
-      <div className="space-y-4">
-        {history.map((entry, index) => (
-          <div key={index} className="bg-white border rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`px-2 py-1 rounded text-sm font-medium ${getActionColor(entry.action)}`}>
-                {entry.action}
-              </span>
-              <span className="text-gray-500 text-sm">
-                {format(new Date(entry.timestamp), 'PPpp')}
-              </span>
-              <span className="text-sm">
-                by {entry.userId.name}
-              </span>
-            </div>
-            
-            {entry.changes && entry.changes.length > 0 && (
-              <div className="mt-2 text-sm text-gray-600">
-                <div className="font-medium">Changes:</div>
-                {entry.changes.map((change, idx) => (
-                  <div key={idx} className="ml-4">
-                    {change.field}: <span className="line-through text-red-600">{change.oldValue}</span> → 
-                    <span className="text-green-600">{change.newValue}</span>
-                  </div>
-                ))}
+    <div className="max-h-[400px] overflow-y-auto">
+      <h2 className="text-xl font-bold mb-4 sticky top-0 bg-white z-10 py-2">Task History</h2>
+      {history.length === 0 ? (
+        <p className="text-gray-500">No history available</p>
+      ) : (
+        <div className="space-y-4 pr-2">
+          {history.map((entry) => (
+            <div key={entry.id} className="bg-white border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`px-2 py-1 rounded text-sm font-medium ${getActionColor(entry.action)}`}>
+                  {entry.action}
+                </span>
+                <span className="text-gray-500">
+                  {format(new Date(entry.timestamp), 'PPpp')}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+              
+              {entry.changes && entry.changes.length > 0 && (
+                <div className="mt-2 text-sm">
+                  <p className="font-medium text-gray-600">Changes:</p>
+                  {entry.changes.map((change, idx) => (
+                    <div key={idx} className="ml-4">
+                      {change.field}: <span className="line-through text-red-600">{change.oldValue}</span> → 
+                      <span className="text-green-600">{change.newValue}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
