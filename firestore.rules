@@ -1,11 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/tasks/{taskId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/taskHistory/{historyId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Match user document and all nested collections
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+      
+      // Allow access to user's tasks
+      match /tasks/{taskId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      
+      // Allow access to user's task history
+      match /taskHistory/{historyId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
   }
 } 

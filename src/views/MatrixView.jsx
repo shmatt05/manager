@@ -168,7 +168,13 @@ export default function MatrixView({
       
       if (oldIndex !== newIndex) {
         const updatedTasks = arrayMove(tasks, oldIndex, newIndex);
-        onTaskUpdate(updatedTasks);
+        // Update each task with its new position
+        updatedTasks.forEach((task, index) => {
+          onTaskSave({
+            ...task,
+            order: index
+          });
+        });
       }
       return;
     }
@@ -180,48 +186,27 @@ export default function MatrixView({
     if (currentQuadrant !== targetQuadrant) {
       const updatedTask = {
         ...task,
-        scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
+        scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today',
+        updatedAt: new Date().toISOString() // Add timestamp for the update
       };
 
-      const changes = [];
-      
       if (targetQuadrant === 'urgent-important') {
         updatedTask.priority = 1;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
-        changes.push(
-          { field: 'priority', oldValue: task.priority, newValue: 1 },
-          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'urgent-important' }
-        );
       } else if (targetQuadrant === 'not-urgent-important') {
         updatedTask.priority = 3;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
-        changes.push(
-          { field: 'priority', oldValue: task.priority, newValue: 3 },
-          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'not-urgent-important' }
-        );
       } else if (targetQuadrant === 'urgent-not-important') {
         updatedTask.priority = 2;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
-        changes.push(
-          { field: 'priority', oldValue: task.priority, newValue: 2 },
-          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'urgent-not-important' }
-        );
       } else if (targetQuadrant === 'not-urgent-not-important') {
         updatedTask.priority = 4;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
-        changes.push(
-          { field: 'priority', oldValue: task.priority, newValue: 4 },
-          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'not-urgent-not-important' }
-        );
       } else if (targetQuadrant === 'tomorrow') {
         updatedTask.priority = 5;
-        changes.push(
-          { field: 'scheduledFor', oldValue: task.scheduledFor, newValue: 'tomorrow' },
-          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'tomorrow' }
-        );
       }
 
-      // Update the task using the single task update handler with changes
+      // Ensure immediate update
       onTaskSave(updatedTask);
     }
   }, [tasks, onTaskSave]);

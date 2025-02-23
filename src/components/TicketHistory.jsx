@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, isFirebaseReady } from '../firebase';
 
 const TicketHistory = ({ ticketId }) => {
   const [history, setHistory] = useState([]);
@@ -27,11 +29,55 @@ const TicketHistory = ({ ticketId }) => {
       }
     };
 
-    loadHistory();
+    // Use localStorage for local development
+    if (!isProd) {
+      loadHistory();
+      return;
+    }
 
-    // If in production, set up real-time listener
-    if (isProd && user) {
-      // ... existing Firestore code ...
+    // Use Firestore for production
+    if (isProd) {
+      if (!isFirebaseReady()) {
+        console.error('Firebase is not initialized');
+        setError('Firebase initialization error');
+        return;
+      }
+
+      if (!user) {
+        console.log('No user authenticated');
+        setHistory([]);
+        return;
+      }
+
+      try {
+        console.log('Setting up history listener for ticket:', ticketId);
+        const historyRef = collection(db, `users/${user.uid}/taskHistory`);
+        const q = query(historyRef, where('ticketData.id', '==', ticketId));
+        
+        const unsubscribe = onSnapshot(q, 
+          (snapshot) => {
+            console.log('History snapshot received:', snapshot.size, 'documents');
+            const historyData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            console.log('Processed history data:', historyData);
+            setHistory(historyData);
+          }, 
+          (error) => {
+            console.error('Firestore error:', error);
+            setError(`Failed to load history: ${error.message}`);
+          }
+        );
+
+        return () => {
+          console.log('Cleaning up history listener');
+          unsubscribe();
+        };
+      } catch (error) {
+        console.error('Error setting up history listener:', error);
+        setError(`Failed to initialize history: ${error.message}`);
+      }
     }
   }, [ticketId, user, isProd]);
 

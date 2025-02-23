@@ -12,6 +12,7 @@ import UserIndicator from './components/UserIndicator'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './components/Login'
 import HistoryView from './views/HistoryView'
+import Header from './components/Header'
 
 const queryClient = new QueryClient()
 
@@ -65,17 +66,20 @@ function AppContent() {
         return;
       }
 
-      // Create merged task
-      const mergedTask = {
-        ...oldTask,
-        ...updatedTask,
-        details: updatedTask.details || oldTask.details,
-        updatedAt: new Date().toISOString()
-      };
+      // Create merged task with cleaned data
+      const mergedTask = Object.fromEntries(
+        Object.entries({
+          ...oldTask,
+          ...updatedTask,
+          details: updatedTask.description || updatedTask.details || oldTask.details || '',
+          description: updatedTask.description || updatedTask.details || oldTask.description || '',
+          updatedAt: new Date().toISOString()
+        }).filter(([_, v]) => v !== undefined)
+      );
 
       // Calculate changes
       const changes = [];
-      ['title', 'details', 'priority', 'status', 'tags', 'scheduledFor'].forEach(key => {
+      ['title', 'description', 'priority', 'status', 'tags', 'scheduledFor'].forEach(key => {
         const oldValue = oldTask[key];
         const newValue = updatedTask[key];
         
@@ -244,25 +248,41 @@ function AppContent() {
 
   const handleTasksUpdate = async (updatedTasks) => {
     try {
+      console.log('handleTasksUpdate called with:', updatedTasks);
+      
       // Update local state immediately
       setTasks(updatedTasks);
+      console.log('Local state updated to:', updatedTasks);
 
       // Then handle persistence
       if (isProd && user) {
+        console.log('Saving to Firestore for user:', user.uid);
         const db = getFirestore();
-        const batch = updatedTasks.map(task => 
-          setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), {
-            ...task,
-            userId: user.uid,
-            updatedAt: new Date().toISOString()
-          })
-        );
-        await Promise.all(batch);
+        const batch = await Promise.all(updatedTasks.map(task => {
+          // Clean up the task object by removing undefined fields
+          const cleanTask = Object.fromEntries(
+            Object.entries({
+              ...task,
+              userId: user.uid,
+              updatedAt: new Date().toISOString(),
+              // Ensure description/details consistency
+              details: task.description || task.details || '',
+              description: task.description || task.details || ''
+            }).filter(([_, v]) => v !== undefined)
+          );
+          
+          console.log('Saving cleaned task to Firestore:', cleanTask);
+          return setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), cleanTask);
+        }));
+        console.log('Firestore batch update complete');
       } else {
+        console.log('Saving to localStorage:', updatedTasks);
         localStorage.setItem('tasks', JSON.stringify(updatedTasks));
       }
     } catch (error) {
       console.error('Error updating tasks:', error);
+      console.log('Reverting to previous state:', tasks);
+      setTasks(tasks);
     }
   };
 
@@ -298,30 +318,13 @@ function AppContent() {
 
   return (
     <div className="flex flex-col h-screen bg-blue-50">
-      {import.meta.env.MODE === 'production' && user && <UserIndicator />}
-      <div className="flex justify-between items-center">
+      <Header 
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
         <TaskCreate onCreateTask={handleCreateTask} />
-        <AuthButton />
-      </div>
-      
-      <div className="border-b bg-white px-6">
-        <nav className="flex gap-4">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'px-4 py-2 font-medium text-sm border-b-2 transition-colors',
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      </Header>
 
       <main className="flex-1 overflow-auto">
         {activeTab === 'matrix' ? (
