@@ -51,9 +51,52 @@ export default function HistoryView() {
     }
   };
 
+  const handleExportHistory = () => {
+    try {
+      // Get all history
+      const allHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
+      
+      // Create a Blob with the JSON data
+      const historyBlob = new Blob(
+        [JSON.stringify(allHistory, null, 2)], 
+        { type: 'application/json' }
+      );
+      
+      // Create download link
+      const url = URL.createObjectURL(historyBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `task-history-${format(new Date(), 'yyyy-MM-dd-HH-mm')}.json`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting history:', error);
+      setError('Failed to export history');
+    }
+  };
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Task History</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Task History</h1>
+        <button
+          onClick={handleExportHistory}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 
+                   transition-colors duration-200 flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export History
+        </button>
+      </div>
       
       <div className="space-y-4">
         {history.map((entry) => (
