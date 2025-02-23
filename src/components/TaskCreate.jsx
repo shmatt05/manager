@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,107 +34,45 @@ const parseTimeString = (timeStr) => {
   }
 };
 
-export default function TaskCreate({ onCreateTask }) {
-  const addTask = useTaskStore(state => state.addTask);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    resolver: zodResolver(taskSchema),
-    defaultValues: {
-      rawText: ''
+const TaskCreate = ({ onAddTask }) => {
+  const [taskText, setTaskText] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (taskText.trim()) {
+      onAddTask(taskText.trim());
+      setTaskText('');
     }
-  });
-
-  const onSubmit = useCallback((data) => {
-    // Extract time using regex
-    const timeMatch = data.rawText.match(/@([^\s#]+)/);
-    let dueDate = null;
-
-    if (timeMatch) {
-      const parsedTime = parseTimeString(timeMatch[0]);
-      if (parsedTime) {
-        const now = new Date();
-        // If the time is earlier than now, assume it's for tomorrow
-        dueDate = set(now, {
-          hours: parsedTime.getHours(),
-          minutes: parsedTime.getMinutes(),
-          seconds: 0,
-          milliseconds: 0
-        });
-        
-        if (dueDate < now) {
-          dueDate = addDays(dueDate, 1);
-        }
-      }
-    }
-
-    // Get title (everything before @ or #)
-    const title = data.rawText.split(/[@#]/)[0].trim();
-    
-    // Determine initial priority based on tags
-    const tags = ['important'];
-    const isUrgent = data.rawText.toLowerCase().includes('#urgent');
-    if (isUrgent) {
-      tags.push('urgent');
-    }
-
-    // Set priority based on urgency and importance
-    let priority;
-    if (isUrgent && tags.includes('important')) {
-      priority = 1;
-    } else if (isUrgent && !tags.includes('important')) {
-      priority = 2;
-    } else if (!isUrgent && tags.includes('important')) {
-      priority = 3;
-    } else {
-      priority = 4;
-    }
-    
-    const newTask = {
-      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      rawText: data.rawText,
-      title,
-      description: data.rawText,
-      priority,
-      tags,
-      scheduledFor: 'today',
-      status: 'todo',
-      createdAt: new Date().toISOString(),
-      dueDate: dueDate ? dueDate.toISOString() : null
-    };
-
-    console.log('Creating new task:', newTask);
-    addTask(newTask);
-    reset();
-    onCreateTask(newTask);
-  }, [addTask, reset, onCreateTask]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.ctrlKey && e.key === 'Enter') {
-      handleSubmit(onSubmit)();
-    }
-  }, [handleSubmit, onSubmit]);
+  };
 
   return (
-    <div className="border-b bg-white shadow-sm">
-      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto p-4">
-        <div className="flex gap-2">
-          <input
-            {...register('rawText')}
-            type="text"
-            placeholder="Add task... (e.g., Review PR @3pm #code #urgent)"
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500"
-            onKeyDown={handleKeyDown}
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Add
-          </button>
-        </div>
-        {errors.rawText && (
-          <p className="mt-1 text-sm text-red-500">{errors.rawText.message}</p>
-        )}
+    <div className="w-full bg-white shadow-sm border-b border-gray-100">
+      <form 
+        onSubmit={handleSubmit} 
+        className="max-w-3xl mx-auto flex gap-2 p-4 my-6"
+      >
+        <input
+          type="text"
+          value={taskText}
+          onChange={(e) => setTaskText(e.target.value)}
+          placeholder="Add a new task... (e.g., 'Review Q4 reports')"
+          className="flex-1 px-4 py-2 text-gray-700 bg-gray-50 rounded-lg
+                   border border-gray-200 focus:border-blue-500 focus:ring-2 
+                   focus:ring-blue-200 focus:outline-none transition-all duration-200
+                   placeholder:text-gray-400"
+        />
+        <button
+          type="submit"
+          disabled={!taskText.trim()}
+          className="px-6 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors
+                   duration-200 font-medium shadow-sm"
+        >
+          Add
+        </button>
       </form>
     </div>
   );
-} 
+};
+
+export default TaskCreate; 
