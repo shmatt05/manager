@@ -96,7 +96,8 @@ export default function MatrixView({
   onTaskClick, 
   onTaskUpdate,
   onTaskDelete, 
-  onTaskComplete 
+  onTaskComplete,
+  onTaskSave
 }) {
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -167,25 +168,7 @@ export default function MatrixView({
       
       if (oldIndex !== newIndex) {
         const updatedTasks = arrayMove(tasks, oldIndex, newIndex);
-        
-        if (isFirebaseEnabled && auth.currentUser) {
-          const db = getFirestore();
-          const batch = updatedTasks.map((task, index) => 
-            setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
-              ...task,
-              order: index,
-              userId: auth.currentUser.uid,
-              updatedAt: new Date().toISOString()
-            })
-          );
-          Promise.all(batch).then(() => {
-            onTaskUpdate(updatedTasks);
-          });
-        } else {
-          localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-          useTaskStore.getState().setTasks(updatedTasks);
-          onTaskUpdate(updatedTasks);
-        }
+        onTaskUpdate(updatedTasks);
       }
       return;
     }
@@ -200,40 +183,48 @@ export default function MatrixView({
         scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today'
       };
 
+      const changes = [];
+      
       if (targetQuadrant === 'urgent-important') {
         updatedTask.priority = 1;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
+        changes.push(
+          { field: 'priority', oldValue: task.priority, newValue: 1 },
+          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'urgent-important' }
+        );
       } else if (targetQuadrant === 'not-urgent-important') {
         updatedTask.priority = 3;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
+        changes.push(
+          { field: 'priority', oldValue: task.priority, newValue: 3 },
+          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'not-urgent-important' }
+        );
       } else if (targetQuadrant === 'urgent-not-important') {
         updatedTask.priority = 2;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+        changes.push(
+          { field: 'priority', oldValue: task.priority, newValue: 2 },
+          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'urgent-not-important' }
+        );
       } else if (targetQuadrant === 'not-urgent-not-important') {
         updatedTask.priority = 4;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+        changes.push(
+          { field: 'priority', oldValue: task.priority, newValue: 4 },
+          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'not-urgent-not-important' }
+        );
       } else if (targetQuadrant === 'tomorrow') {
         updatedTask.priority = 5;
+        changes.push(
+          { field: 'scheduledFor', oldValue: task.scheduledFor, newValue: 'tomorrow' },
+          { field: 'quadrant', oldValue: currentQuadrant, newValue: 'tomorrow' }
+        );
       }
 
-      // Update local state first
-      const newTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
-      useTaskStore.getState().setTasks(newTasks);
-      onTaskUpdate(newTasks);
-
-      // Then persist
-      if (isFirebaseEnabled && auth.currentUser) {
-        const db = getFirestore();
-        setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
-          ...updatedTask,
-          userId: auth.currentUser.uid,
-          updatedAt: new Date().toISOString()
-        });
-      } else {
-        localStorage.setItem('tasks', JSON.stringify(newTasks));
-      }
+      // Update the task using the single task update handler with changes
+      onTaskSave(updatedTask);
     }
-  }, [tasks, isFirebaseEnabled, onTaskUpdate, auth?.currentUser]);
+  }, [tasks, onTaskSave]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
@@ -259,46 +250,17 @@ export default function MatrixView({
 
   const handleTaskSave = useCallback(async (updatedTask) => {
     try {
-      if (isFirebaseEnabled && auth.currentUser) {
-        const db = getFirestore();
-        const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${updatedTask.id}`);
-        await setDoc(taskRef, {
-          ...updatedTask,
-          userId: auth.currentUser.uid,
-          updatedAt: new Date().toISOString()
-        });
-      } else {
-        const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-        const newTasks = savedTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-        localStorage.setItem('tasks', JSON.stringify(newTasks));
-        useTaskStore.getState().setTasks(newTasks);
-        onTaskUpdate(newTasks);
-      }
-      
+      onTaskSave(updatedTask);
       setIsModalOpen(false);
       setSelectedTask(null);
     } catch (error) {
       console.error('Error saving task:', error);
     }
-  }, [isFirebaseEnabled, onTaskUpdate]);
+  }, [onTaskSave]);
 
   const handleTaskDelete = useCallback(async (taskId) => {
-    // Add confirmation dialog
-    if (!window.confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
-
-    if (isFirebaseEnabled && auth.currentUser) {
-      const db = getFirestore();
-      const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${taskId}`);
-      await deleteDoc(taskRef);
-    } else {
-      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const newTasks = savedTasks.filter(t => t.id !== taskId);
-      localStorage.setItem('tasks', JSON.stringify(newTasks));
-      useTaskStore.getState().setTasks(newTasks);
-    }
-  }, [isFirebaseEnabled]);
+    onTaskDelete(taskId);
+  }, [onTaskDelete]);
 
   useEffect(() => {
     if (!import.meta.env.PROD || !auth?.currentUser) {
