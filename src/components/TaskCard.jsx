@@ -42,8 +42,10 @@ export default function TaskCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transition: isDragging 
+      ? undefined  // No transition while dragging
+      : transition, // Use dnd-kit's transition
+    opacity: isDragging ? 0 : 1, // Hide original while dragging
     zIndex: isDragging ? 100 : 1,
   };
 

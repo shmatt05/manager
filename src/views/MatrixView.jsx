@@ -7,6 +7,7 @@ import {
   useDroppable,
   DragOverlay,
   closestCenter,
+  defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import useTaskStore from '../stores/taskStore';
 import TaskCard from '../components/TaskCard';
@@ -148,7 +149,7 @@ export default function MatrixView({
   const handleDragStart = useCallback((event) => {
     const { active } = event;
     setActiveId(active.id);
-  }, []);
+  }, [tasks]);
 
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
@@ -169,7 +170,6 @@ export default function MatrixView({
         
         if (isFirebaseEnabled && auth.currentUser) {
           const db = getFirestore();
-          // Create a batch operation
           const batch = updatedTasks.map((task, index) => 
             setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
               ...task,
@@ -178,20 +178,16 @@ export default function MatrixView({
               updatedAt: new Date().toISOString()
             })
           );
-          // Wait for all updates to complete
           Promise.all(batch).then(() => {
-            // Update local state after Firestore confirms the changes
             onTaskUpdate(updatedTasks);
-          }).catch(error => {
-            console.error('Error updating task order:', error);
           });
         } else {
           localStorage.setItem('tasks', JSON.stringify(updatedTasks));
           useTaskStore.getState().setTasks(updatedTasks);
           onTaskUpdate(updatedTasks);
         }
-        return;
       }
+      return;
     }
 
     // If we're dropping on a quadrant
@@ -205,35 +201,36 @@ export default function MatrixView({
       };
 
       if (targetQuadrant === 'urgent-important') {
-        updatedTask.priority = 1;  // Red - Do
+        updatedTask.priority = 1;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
       } else if (targetQuadrant === 'not-urgent-important') {
-        updatedTask.priority = 3;  // Blue - Schedule
+        updatedTask.priority = 3;
         updatedTask.tags = [...new Set([...task.tags, 'important'])];
       } else if (targetQuadrant === 'urgent-not-important') {
-        updatedTask.priority = 2;  // Yellow - Delegate
+        updatedTask.priority = 2;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
       } else if (targetQuadrant === 'not-urgent-not-important') {
-        updatedTask.priority = 4;  // Gray - Eliminate
+        updatedTask.priority = 4;
         updatedTask.tags = task.tags.filter(tag => tag !== 'important');
       } else if (targetQuadrant === 'tomorrow') {
-        updatedTask.priority = 5;  // Purple - Tomorrow
+        updatedTask.priority = 5;
       }
 
+      // Update local state first
+      const newTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
+      useTaskStore.getState().setTasks(newTasks);
+      onTaskUpdate(newTasks);
+
+      // Then persist
       if (isFirebaseEnabled && auth.currentUser) {
         const db = getFirestore();
-        const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`);
-        setDoc(taskRef, {
+        setDoc(doc(db, `users/${auth.currentUser.uid}/tasks/${task.id}`), {
           ...updatedTask,
           userId: auth.currentUser.uid,
           updatedAt: new Date().toISOString()
         });
       } else {
-        const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-        const newTasks = savedTasks.map(t => t.id === task.id ? updatedTask : t);
         localStorage.setItem('tasks', JSON.stringify(newTasks));
-        useTaskStore.getState().setTasks(newTasks);
-        onTaskUpdate(newTasks);
       }
     }
   }, [tasks, isFirebaseEnabled, onTaskUpdate, auth?.currentUser]);
@@ -320,7 +317,6 @@ export default function MatrixView({
       useTaskStore.getState().setTasks(tasksData);
       setLoading(false);
     }, (error) => {
-      console.error("Firestore error:", error);
       setLoading(false);
     });
 
@@ -370,7 +366,17 @@ export default function MatrixView({
         </div>
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={{
+        duration: 250,
+        easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: {
+            active: {
+              opacity: '0'
+            }
+          }
+        })
+      }}>
         {activeId ? (
           <TaskCard 
             task={tasks.find(t => t.id === activeId)}
