@@ -43,6 +43,7 @@ function AppContent() {
   const [tasks, setTasks] = useState([])
   const [selectedTask, setSelectedTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [lastLocalUpdate, setLastLocalUpdate] = useState(null)
   const { user, loading } = useAuth()
   const isProd = import.meta.env.PROD
 
@@ -248,15 +249,17 @@ function AppContent() {
 
   const handleTasksUpdate = async (updatedTasks) => {
     try {
-      console.log('handleTasksUpdate called with:', updatedTasks);
+      console.log('🎭 DND Update Start:', new Date().getTime());
       
-      // Update local state immediately
+      // Set the lastLocalUpdate timestamp
+      const updateTime = new Date().getTime();
+      setLastLocalUpdate(updateTime);
+      
       setTasks(updatedTasks);
-      console.log('Local state updated to:', updatedTasks);
+      console.log('🎭 Local state updated');
 
-      // Then handle persistence
       if (isProd && user) {
-        console.log('Saving to Firestore for user:', user.uid);
+        console.log('🎭 Starting Firestore update');
         const db = getFirestore();
         const batch = await Promise.all(updatedTasks.map(task => {
           // Clean up the task object by removing undefined fields
@@ -274,14 +277,13 @@ function AppContent() {
           console.log('Saving cleaned task to Firestore:', cleanTask);
           return setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), cleanTask);
         }));
-        console.log('Firestore batch update complete');
+        console.log('🎭 Firestore update complete');
       } else {
         console.log('Saving to localStorage:', updatedTasks);
         localStorage.setItem('tasks', JSON.stringify(updatedTasks));
       }
     } catch (error) {
-      console.error('Error updating tasks:', error);
-      console.log('Reverting to previous state:', tasks);
+      console.error('🎭 Error:', error);
       setTasks(tasks);
     }
   };
@@ -292,6 +294,15 @@ function AppContent() {
       const tasksRef = collection(db, `users/${user.uid}/tasks`);
       
       const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
+        const currentTime = new Date().getTime();
+        console.log('🔥 Firestore snapshot received:', currentTime);
+        
+        // Ignore updates that happen within 1 second of a local update
+        if (lastLocalUpdate && currentTime - lastLocalUpdate < 1000) {
+          console.log('🔥 Ignoring Firestore update due to recent local update');
+          return;
+        }
+
         const tasksData = snapshot.docs.map(doc => ({
           ...doc.data(),
           id: doc.id
@@ -306,7 +317,7 @@ function AppContent() {
         setTasks(JSON.parse(savedTasks));
       }
     }
-  }, [isProd, user]);
+  }, [isProd, user, lastLocalUpdate]);
 
   if (loading) {
     return <div>Loading...</div>;

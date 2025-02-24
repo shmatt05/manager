@@ -168,13 +168,7 @@ export default function MatrixView({
       
       if (oldIndex !== newIndex) {
         const updatedTasks = arrayMove(tasks, oldIndex, newIndex);
-        // Update each task with its new position
-        updatedTasks.forEach((task, index) => {
-          onTaskSave({
-            ...task,
-            order: index
-          });
-        });
+        onTaskUpdate(updatedTasks);
       }
       return;
     }
@@ -187,7 +181,7 @@ export default function MatrixView({
       const updatedTask = {
         ...task,
         scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today',
-        updatedAt: new Date().toISOString() // Add timestamp for the update
+        updatedAt: new Date().toISOString()
       };
 
       if (targetQuadrant === 'urgent-important') {
@@ -206,10 +200,13 @@ export default function MatrixView({
         updatedTask.priority = 5;
       }
 
-      // Ensure immediate update
-      onTaskSave(updatedTask);
+      // Update the entire tasks array instead of just one task
+      const updatedTasks = tasks.map(t => 
+        t.id === updatedTask.id ? updatedTask : t
+      );
+      onTaskUpdate(updatedTasks);
     }
-  }, [tasks, onTaskSave]);
+  }, [tasks, onTaskUpdate]);
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
