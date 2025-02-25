@@ -34,7 +34,7 @@ export default function HistoryEntry({ entry }) {
   };
 
   return (
-    <div className="border rounded-lg p-4 bg-white shadow-sm">
+    <div className="border rounded-lg p-4 bg-white shadow-sm w-full">
       <div className="flex justify-between items-start">
         <div>
           <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getActionColor()}`}>
@@ -56,12 +56,17 @@ export default function HistoryEntry({ entry }) {
             {changes.map((change, index) => (
               <li key={index} className="text-gray-600">
                 <span className="font-medium">{change.field}: </span>
-                {typeof change.oldValue === 'object' 
-                  ? JSON.stringify(change.oldValue) 
-                  : String(change.oldValue || '')} → 
-                {typeof change.newValue === 'object' 
-                  ? JSON.stringify(change.newValue) 
-                  : String(change.newValue || '')}
+                <span className="line-through text-red-600">
+                  {typeof change.oldValue === 'object' 
+                    ? JSON.stringify(change.oldValue) 
+                    : String(change.oldValue || '')}
+                </span>
+                {' → '}
+                <span className="text-green-600">
+                  {typeof change.newValue === 'object' 
+                    ? JSON.stringify(change.newValue) 
+                    : String(change.newValue || '')}
+                </span>
               </li>
             ))}
           </ul>

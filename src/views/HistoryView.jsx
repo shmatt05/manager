@@ -3,11 +3,13 @@ import { format, isWithinInterval, parseISO } from 'date-fns';
 import { getFirestore, collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import HistoryEntry from '../components/HistoryEntry';
+import { config } from '../config';
+import { db, isFirebaseReady } from '../firebase';
 
 export default function HistoryView() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [showExport, setShowExport] = useState(false);
   const [dateRange, setDateRange] = useState({
     from: '',
@@ -15,35 +17,61 @@ export default function HistoryView() {
   });
   const { user } = useAuth();
   const [limitCount, setLimitCount] = useState(20);
+  const { isProd, useFirebase } = config;
 
   useEffect(() => {
-    if (!user) {
-      // Handle local storage history for non-authenticated users
-      const localHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
-      setHistory(localHistory);
-      setLoading(false);
+    // For development or when Firebase is not used
+    if (!useFirebase) {
+      try {
+        const localHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
+        setHistory(localHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading history from localStorage:', error);
+        setError('Failed to load history data');
+        setLoading(false);
+      }
       return;
     }
 
-    const db = getFirestore();
-    const historyRef = collection(db, `users/${user.uid}/taskHistory`);
-    const historyQuery = query(
-      historyRef,
-      orderBy('timestamp', 'desc'),
-      limit(limitCount)
-    );
-    
-    const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
-      const historyData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      }));
-      setHistory(historyData);
-      setLoading(false);
-    });
+    // For production with Firebase
+    if (useFirebase && user) {
+      if (!isFirebaseReady()) {
+        setError('Firebase is not initialized');
+        setLoading(false);
+        return;
+      }
 
-    return () => unsubscribe();
-  }, [user, limitCount]);
+      try {
+        const historyRef = collection(db, `users/${user.uid}/taskHistory`);
+        const q = query(historyRef, orderBy('timestamp', 'desc'), limit(100));
+        
+        const unsubscribe = onSnapshot(q, 
+          (snapshot) => {
+            const historyData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            setHistory(historyData);
+            setLoading(false);
+          }, 
+          (error) => {
+            console.error('Error fetching history:', error);
+            setError('Failed to load history data');
+            setLoading(false);
+          }
+        );
+        
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error setting up history listener:', error);
+        setError('Failed to initialize history view');
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
+  }, [user, useFirebase]);
 
   const getActionColor = (action) => {
     switch (action) {
@@ -102,92 +130,37 @@ export default function HistoryView() {
   };
 
   if (loading) {
-    return <div className="p-6">Loading history...</div>;
+    return (
+      <div className="p-6 flex justify-center">
+        <div className="animate-pulse">Loading history...</div>
+      </div>
+    );
   }
 
-  if (history.length === 0) {
-    return <div className="p-6">No history available.</div>;
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Task History</h1>
-        <button
-          onClick={() => setShowExport(!showExport)}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 
-                   transition-colors duration-200 flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export History
-        </button>
-      </div>
-
-      {/* Export Panel */}
-      {showExport && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h2 className="text-lg font-semibold mb-4">Export Options</h2>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.from}
-                onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.to}
-                onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => handleExportHistory(true)}
-              disabled={!dateRange.from || !dateRange.to}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 
-                       transition-colors duration-200 disabled:opacity-50 
-                       disabled:cursor-not-allowed"
-            >
-              Export Selected Range
-            </button>
-            <button
-              onClick={() => handleExportHistory(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 
-                       transition-colors duration-200"
-            >
-              Export All
-            </button>
-          </div>
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Task History</h1>
+      
+      {history.length === 0 ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center text-gray-500">
+          No history available
         </div>
-      )}
-      
-      <div className="space-y-4">
-        {history.map(entry => (
-          <HistoryEntry key={entry.id} entry={entry} />
-        ))}
-      </div>
-      
-      {history.length >= limitCount && (
-        <button 
-          onClick={loadMore}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Load More
-        </button>
+      ) : (
+        <div className="space-y-4">
+          {history.map(entry => (
+            <HistoryEntry key={entry.id || entry.timestamp} entry={entry} />
+          ))}
+        </div>
       )}
     </div>
   );

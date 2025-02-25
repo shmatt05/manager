@@ -63,9 +63,9 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
       ...editedTask,
       title: titleRef.current.value,
       details: detailsRef.current.value,
+      description: detailsRef.current.value, // Make sure we update both fields for consistency
       tags: editedTask.tags || []
     };
-    console.log('Saving task with tags:', updatedTask);
     onSave(updatedTask);
   };
 
