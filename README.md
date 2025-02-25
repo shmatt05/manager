@@ -1,6 +1,6 @@
-# Task Manager Matrix
+# Task Matrix
 
-A React-based task management application using the Eisenhower Matrix to help prioritize tasks based on their urgency and importance.
+A modern task management application based on the Eisenhower Matrix methodology to help you prioritize tasks and boost productivity.
 
 ## 🚀 Quick Start
 
@@ -27,64 +27,69 @@ npm run dev
 
 ## 📋 Features
 
-- **Interactive Matrix Layout**: Four quadrants based on the Eisenhower Matrix
-- **Drag & Drop**: Easily move tasks between quadrants
-- **Task Management**: Create, edit, and delete tasks
-- **Responsive Design**: Works on both desktop and mobile devices
+- **Eisenhower Matrix**: Organize tasks by urgency and importance
+- **Smart Task Creation**: Quick entry with natural language processing
+- **Task Management**: Create, edit, complete, and delete tasks
+- **Drag and Drop**: Easily reorganize tasks between quadrants
+- **History Tracking**: View a complete history of all task changes
+- **Cloud Sync**: Automatically sync data across devices (when using Firebase)
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## 💻 Development
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
+- Node.js (v14.0 or higher)
+- npm or yarn
 
-### Available Scripts
+### Installation
 
-```bash
-# Start development server
-npm run dev
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/task-matrix.git
+   cd task-matrix
+   ```
 
-# Build for production
-npm run build
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn
+   ```
 
-# Preview production build
-npm run preview
-```
+3. Create a `.env` file in the project root with the following variables:
+   ```
+   VITE_USE_FIREBASE=true  # Set to false for local storage only
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_DATABASE_URL=your_database_url
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
 
-### Project Structure
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
 
-```
-manager/
-├── src/
-│   ├── components/
-│   │   └── TaskCard.jsx
-│   ├── App.jsx
-│   └── index.css
-├── index.html
-├── package.json
-├── tailwind.config.js
-├── postcss.config.js
-└── vite.config.js
-```
+## 🧠 How to Use
 
-## 📱 Usage
+### Task Creation
 
-1. **Adding Tasks**
-   - Click the "+" button in any quadrant
-   - Fill in the task details
-   - Click "Save"
+- Use the input field at the top of the app to create new tasks
+- Add special syntax for advanced features:
+  - `@time` - Add a due time (e.g., `@2pm`, `@3:30pm`)
+  - `#tag` - Add categories or tags to your task
+  - Special tags:
+    - `#do` - Mark as urgent & important (Quadrant 1)
+    - `#schedule` - Mark as important but not urgent (Quadrant 2)
+    - `#delegate` - Mark as urgent but not important (Quadrant 3)
+    - `#eliminate` - Mark as neither urgent nor important (Quadrant 4)
+    - `#tomorrow` - Schedule task for tomorrow
 
-2. **Managing Tasks**
-   - Drag tasks between quadrants
-   - Click a task to edit
-   - Use delete button to remove tasks
-
-3. **Matrix Quadrants**
-   - Top Left: Important & Urgent
-   - Top Right: Important & Not Urgent
-   - Bottom Left: Not Important & Urgent
-   - Bottom Right: Not Important & Not Urgent
+### Example:
 
 ## 🤝 Contributing
 
