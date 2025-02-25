@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi, describe, it, expect } from 'vitest';
 import TaskModal from '../TaskModal';
 
 describe('TaskModal', () => {
@@ -8,8 +9,8 @@ describe('TaskModal', () => {
     details: 'Test Details'
   };
 
-  const mockOnSave = jest.fn();
-  const mockOnClose = jest.fn();
+  const mockOnSave = vi.fn();
+  const mockOnClose = vi.fn();
 
   it('renders when open', () => {
     render(
@@ -42,6 +43,9 @@ describe('TaskModal', () => {
   });
 
   it('handles Shift+Enter in details without saving', () => {
+    // Reset mock before this test
+    mockOnSave.mockReset();
+    
     render(
       <TaskModal
         task={mockTask}

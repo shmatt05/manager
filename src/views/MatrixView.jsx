@@ -74,7 +74,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
         items={tasks.map(task => task.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex-1 overflow-auto min-h-[100px]">
+        <div className="flex-1 overflow-visible min-h-[100px]">
           {tasks.map((task, index) => (
             <TaskCard
               key={task.id}

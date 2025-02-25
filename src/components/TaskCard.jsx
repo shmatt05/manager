@@ -112,7 +112,7 @@ export default function TaskCard({
       </div>
 
       {showActions && (
-        <div className="absolute -right-3 -top-3 flex gap-2">
+        <div className="absolute -right-3 -top-3 flex gap-2 z-10">
           {task.status === 'completed' ? (
             <button
               onClick={(e) => {
@@ -121,6 +121,7 @@ export default function TaskCard({
               }}
               className="p-1.5 rounded-full bg-blue-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-sm"
               title="Restore task"
+              style={{ position: 'relative', zIndex: 20 }}
             >
               <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
             </button>
@@ -132,6 +133,7 @@ export default function TaskCard({
               }}
               className="p-1.5 rounded-full bg-green-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-green-600 shadow-sm"
               title="Complete task"
+              style={{ position: 'relative', zIndex: 20 }}
             >
               <CheckCircleIcon className="w-3.5 h-3.5" />
             </button>
@@ -143,6 +145,7 @@ export default function TaskCard({
             }}
             className="p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
             title="Delete task"
+            style={{ position: 'relative', zIndex: 20 }}
           >
             <TrashIcon className="w-3.5 h-3.5" />
           </button>
