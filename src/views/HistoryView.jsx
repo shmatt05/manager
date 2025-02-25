@@ -15,6 +15,13 @@ export default function HistoryView() {
     from: '',
     to: ''
   });
+  const [selectedActions, setSelectedActions] = useState({
+    CREATE: true,
+    UPDATE: true,
+    DELETE: true,
+    COMPLETE: true,
+    REOPEN: true
+  });
   const { user } = useAuth();
   const [limitCount, setLimitCount] = useState(20);
   const { isProd, useFirebase } = config;
@@ -86,19 +93,31 @@ export default function HistoryView() {
 
   const handleExportHistory = (filtered = false) => {
     try {
-      // Get all history
-      const allHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
+      // Determine which history data to use
+      // When using Firebase, export the current loaded data
+      // When using localStorage, get all history
+      let historyToExport = useFirebase 
+        ? [...history] 
+        : JSON.parse(localStorage.getItem('taskHistory') || '[]');
       
-      // Filter by date range if needed
-      const historyToExport = filtered && dateRange.from && dateRange.to
-        ? allHistory.filter(entry => {
+      // Apply filters if requested
+      if (filtered) {
+        // Filter by date range if needed
+        if (dateRange.from && dateRange.to) {
+          historyToExport = historyToExport.filter(entry => {
             const entryDate = parseISO(entry.timestamp);
             return isWithinInterval(entryDate, {
               start: parseISO(dateRange.from),
               end: parseISO(dateRange.to)
             });
-          })
-        : allHistory;
+          });
+        }
+        
+        // Filter by action types
+        historyToExport = historyToExport.filter(entry => 
+          entry.action && selectedActions[entry.action]
+        );
+      }
       
       // Create a Blob with the JSON data
       const historyBlob = new Blob(
@@ -149,7 +168,90 @@ export default function HistoryView() {
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Task History</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Task History</h1>
+        
+        {history.length > 0 && (
+          <button 
+            onClick={() => setShowExport(!showExport)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+          >
+            <span>{showExport ? 'Hide Export Options' : 'Export History'}</span>
+          </button>
+        )}
+      </div>
+      
+      {showExport && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">Export Options</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Date range selection */}
+            <div>
+              <h3 className="text-md font-medium mb-3">Date Range</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+                  <input 
+                    type="date" 
+                    value={dateRange.from}
+                    onChange={(e) => setDateRange({...dateRange, from: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                  <input 
+                    type="date" 
+                    value={dateRange.to}
+                    onChange={(e) => setDateRange({...dateRange, to: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Action type checkboxes */}
+            <div>
+              <h3 className="text-md font-medium mb-3">Action Types</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.keys(selectedActions).map(action => (
+                  <div key={action} className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id={`action-${action}`}
+                      checked={selectedActions[action]}
+                      onChange={() => setSelectedActions({
+                        ...selectedActions, 
+                        [action]: !selectedActions[action]
+                      })}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                    />
+                    <label htmlFor={`action-${action}`} className={`text-sm font-medium ${getActionColor(action)} inline-block px-2 py-1 rounded`}>
+                      {action}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6 flex gap-4">
+            <button 
+              onClick={() => handleExportHistory(false)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Export All History
+            </button>
+            <button 
+              onClick={() => handleExportHistory(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Export Filtered History
+            </button>
+          </div>
+        </div>
+      )}
       
       {history.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center text-gray-500">
