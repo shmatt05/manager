@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import TicketHistory from './TicketHistory';
+import { format, parseISO } from 'date-fns';
 
 function TabPanel({ children, value, index }) {
   if (value !== index) return null;
@@ -13,13 +14,33 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   const [tabValue, setTabValue] = useState(0);
   const [editedTask, setEditedTask] = useState(null);
   const [newTag, setNewTag] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
 
   useEffect(() => {
     if (!isOpen) {
       setEditedTask(null);
+      setDueDate('');
+      setDueTime('');
     } else if (isOpen && task) {
       setEditedTask(task);
       setTabValue(0);
+      
+      // Initialize due date and time if task has a dueDate
+      if (task.dueDate) {
+        try {
+          const date = parseISO(task.dueDate);
+          setDueDate(format(date, 'yyyy-MM-dd'));
+          setDueTime(format(date, 'HH:mm'));
+        } catch (error) {
+          console.error('Error parsing due date:', error);
+          setDueDate('');
+          setDueTime('');
+        }
+      } else {
+        setDueDate('');
+        setDueTime('');
+      }
     }
   }, [isOpen, task]);
 
@@ -59,14 +80,28 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
 
   const handleSave = () => {
     if (!editedTask) return;
-    const updatedTask = {
+    
+    // Process due date and time
+    let updatedDueDate = null;
+    if (dueDate) {
+      try {
+        if (dueTime) {
+          // Combine date and time
+          const dateTimeStr = `${dueDate}T${dueTime}`;
+          updatedDueDate = new Date(dateTimeStr).toISOString();
+        } else {
+          // Use just the date at 00:00
+          updatedDueDate = new Date(`${dueDate}T00:00:00`).toISOString();
+        }
+      } catch (error) {
+        console.error('Error setting due date:', error);
+      }
+    }
+    
+    onSave({
       ...editedTask,
-      title: titleRef.current.value,
-      details: detailsRef.current.value,
-      description: detailsRef.current.value, // Make sure we update both fields for consistency
-      tags: editedTask.tags || []
-    };
-    onSave(updatedTask);
+      dueDate: updatedDueDate
+    });
   };
 
   if (!isOpen || !editedTask) return null;
@@ -116,6 +151,32 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                 placeholder="Add details (Shift + Enter for new line)"
                 onKeyDown={handleKeyDown}
               />
+              
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Due Time
+                  </label>
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
+              </div>
+              
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tags

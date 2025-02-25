@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { format } from 'date-fns';
+import { format, isPast, parseISO } from 'date-fns';
 import { CSS } from '@dnd-kit/utilities';
 import { 
   TrashIcon, 
@@ -49,6 +49,9 @@ export default function TaskCard({
     zIndex: isDragging ? 100 : 1,
   };
 
+  // Check if task is overdue
+  const isOverdue = task.dueDate && task.status !== 'completed' && isPast(parseISO(task.dueDate));
+
   return (
     <div
       ref={setNodeRef}
@@ -56,36 +59,50 @@ export default function TaskCard({
       {...attributes}
       {...listeners}
       className={clsx(
-        'group relative p-3 rounded-lg border shadow-sm cursor-move focus:outline-none mt-3 mr-3',
-        priorityColors[task.priority],
-        className,
-        task.status === 'completed' ? 'opacity-50' : 'opacity-100',
-        isDragging && 'shadow-lg'
+        'relative group cursor-pointer rounded-lg border p-3 shadow-sm transition-all',
+        priorityColors[task.priority] || 'bg-gray-100 border-gray-200',
+        task.status === 'completed' && 'opacity-60',
+        isOverdue && 'ring-2 ring-red-500 ring-opacity-70',
+        className
       )}
+      onClick={() => onEdit(task)}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
-      onClick={() => onEdit(task)}
     >
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-sm truncate">
-            {task.title || task.rawText || ''}
+      <div className="flex flex-col">
+        <div className="flex justify-between">
+          <h3 className={clsx(
+            "font-medium text-gray-900 break-words",
+            task.status === 'completed' && 'line-through text-gray-500'
+          )}>
+            {task.title}
           </h3>
+        </div>
+
+        <div className="mt-1">
+          {task.tags && task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {task.tags.map(tag => (
+                <span 
+                  key={tag}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+          
           {task.dueDate && (
-            <time className="text-xs text-gray-600 block mt-1">
+            <time className={clsx(
+              "text-xs block mt-1",
+              isOverdue ? "text-red-600 font-medium" : "text-gray-600"
+            )}>
+              {isOverdue ? '⚠ Overdue: ' : ''}
               {format(new Date(task.dueDate), 'MMM d, h:mm a')}
             </time>
           )}
-          <div className="flex flex-wrap gap-1 mt-2">
-            {(task.tags || []).map(tag => (
-              <span
-                key={tag}
-                className="px-1.5 py-0.5 text-xs rounded-full bg-white/50"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
+          
           {task.details && (
             <div className="text-xs text-gray-500 mt-1">
               <span className="mr-1">📝</span>Has details
