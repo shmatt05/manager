@@ -21,7 +21,6 @@ const TicketHistory = ({ ticketId }) => {
         const ticketHistory = allHistory.filter(entry => 
           entry.ticketData.id === ticketId
         );
-        console.log('Ticket specific history:', ticketHistory);
         setHistory(ticketHistory);
       } catch (error) {
         console.error('Error loading ticket history:', error);
@@ -44,24 +43,20 @@ const TicketHistory = ({ ticketId }) => {
       }
 
       if (!user) {
-        console.log('No user authenticated');
         setHistory([]);
         return;
       }
 
       try {
-        console.log('Setting up history listener for ticket:', ticketId);
         const historyRef = collection(db, `users/${user.uid}/taskHistory`);
         const q = query(historyRef, where('ticketData.id', '==', ticketId));
         
         const unsubscribe = onSnapshot(q, 
           (snapshot) => {
-            console.log('History snapshot received:', snapshot.size, 'documents');
             const historyData = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data()
             }));
-            console.log('Processed history data:', historyData);
             setHistory(historyData);
           }, 
           (error) => {
@@ -71,7 +66,6 @@ const TicketHistory = ({ ticketId }) => {
         );
 
         return () => {
-          console.log('Cleaning up history listener');
           unsubscribe();
         };
       } catch (error) {

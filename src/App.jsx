@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import MatrixView from './views/MatrixView'
 import CompletedView from './views/CompletedView'
 import TaskCreate from './components/TaskCreate'
-import clsx from 'clsx'
 import TaskModal from './components/TaskModal'
-import { storage } from './utils/storage'
-import AuthButton from './components/AuthButton'
-import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore'
-import UserIndicator from './components/UserIndicator'
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './components/Login'
 import HistoryView from './views/HistoryView'
 import Header from './components/Header'
+import { TaskService } from './services/TaskService'
+import { config } from './config'
 
 const queryClient = new QueryClient()
 
@@ -22,21 +20,7 @@ const tabs = [
   { id: 'history', label: 'History' }
 ]
 
-const createHistoryEntry = (task, action, userId, changes = null) => ({
-  id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-  timestamp: new Date().toISOString(),
-  action,
-  userId,
-  ticketData: task,
-  changes
-});
-
-// Helper function to save history entry to localStorage
-const saveHistoryToLocalStorage = (historyEntry) => {
-  const existingHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
-  const newHistory = [historyEntry, ...existingHistory];
-  localStorage.setItem('taskHistory', JSON.stringify(newHistory));
-};
+// These functions are now provided by TaskService
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('matrix')
@@ -45,76 +29,17 @@ function AppContent() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [lastLocalUpdate, setLastLocalUpdate] = useState(null)
   const { user, loading } = useAuth()
-  const isProd = import.meta.env.PROD
+  const { isProd, useFirebase } = config
 
   const handleTaskClick = (task) => {
-    setSelectedTask(task)
-    setIsModalOpen(true)
+    setSelectedTask(task);
+    setIsModalOpen(true);
   }
 
   const handleTaskSave = async (updatedTask) => {
-    console.log('handleTaskSave received:', updatedTask);
-    
-    if (Array.isArray(updatedTask)) {
-      console.error('Received array instead of single task');
-      return;
-    }
-
     try {
-      const oldTask = tasks.find(t => t.id === updatedTask.id);
-      if (!oldTask) {
-        console.error('Could not find original task');
-        return;
-      }
-
-      // Create merged task with cleaned data
-      const mergedTask = Object.fromEntries(
-        Object.entries({
-          ...oldTask,
-          ...updatedTask,
-          details: updatedTask.description || updatedTask.details || oldTask.details || '',
-          description: updatedTask.description || updatedTask.details || oldTask.description || '',
-          updatedAt: new Date().toISOString()
-        }).filter(([_, v]) => v !== undefined)
-      );
-
-      // Calculate changes
-      const changes = [];
-      ['title', 'description', 'priority', 'status', 'tags', 'scheduledFor'].forEach(key => {
-        const oldValue = oldTask[key];
-        const newValue = updatedTask[key];
-        
-        if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-          changes.push({ field: key, oldValue, newValue });
-        }
-      });
-
-      // Only create history entry if there are actual changes
-      if (changes.length > 0) {
-        const historyEntry = createHistoryEntry(mergedTask, 'UPDATE', isProd ? user.uid : 'local-user', changes);
-        console.log('Creating history entry for update:', historyEntry);
-
-        if (isProd && user) {
-          const db = getFirestore();
-          await Promise.all([
-            setDoc(doc(db, `users/${user.uid}/tasks/${updatedTask.id}`), mergedTask),
-            setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
-          ]);
-        } else {
-          // Update both tasks and history in localStorage
-          const newTasks = tasks.map(task => 
-            task.id === updatedTask.id ? mergedTask : task
-          );
-          localStorage.setItem('tasks', JSON.stringify(newTasks));
-          saveHistoryToLocalStorage(historyEntry);
-        }
-      }
-
-      // Update local state immediately
-      setTasks(currentTasks => 
-        currentTasks.map(task => task.id === updatedTask.id ? mergedTask : task)
-      );
-
+      const updatedTasks = await TaskService.updateTask(updatedTask, tasks, user, isProd);
+      setTasks(updatedTasks);
       setIsModalOpen(false);
       setSelectedTask(null);
     } catch (error) {
@@ -128,120 +53,26 @@ function AppContent() {
     }
 
     try {
-      const taskToDelete = tasks.find(t => t.id === taskId);
-      
-      if (isProd && user) {
-        const db = getFirestore();
-        
-        // Create history entry for deletion
-        const historyEntry = createHistoryEntry(taskToDelete, 'DELETE', user.uid);
-        console.log('Creating history entry for delete:', historyEntry);
-
-        await Promise.all([
-          deleteDoc(doc(db, `users/${user.uid}/tasks/${taskId}`)),
-          setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
-        ]);
-      } else {
-        // Local storage handling
-        localStorage.setItem('tasks', JSON.stringify(tasks.filter(t => t.id !== taskId)));
-        
-        // Add history entry
-        const historyEntry = createHistoryEntry(taskToDelete, 'DELETE', 'local-user');
-        saveHistoryToLocalStorage(historyEntry);
-      }
-
-      // Update local state immediately
-      setTasks(currentTasks => currentTasks.filter(t => t.id !== taskId));
+      const updatedTasks = await TaskService.deleteTask(taskId, tasks, user, isProd);
+      setTasks(updatedTasks);
     } catch (error) {
       console.error('Error deleting task:', error);
     }
   };
 
   const handleTaskComplete = async (task) => {
-    const updatedTask = {
-      ...task,
-      status: task.status === 'completed' ? 'active' : 'completed',
-      completedAt: task.status === 'completed' ? null : new Date().toISOString()
-    };
-
     try {
-      if (isProd && user) {
-        const db = getFirestore();
-        
-        // Create history entry for completion
-        const historyEntry = createHistoryEntry(
-          updatedTask, 
-          updatedTask.status === 'completed' ? 'COMPLETE' : 'REOPEN',
-          user.uid,
-          [{
-            field: 'status',
-            oldValue: task.status,
-            newValue: updatedTask.status
-          }]
-        );
-        console.log('Creating history entry for completion:', historyEntry);
-
-        await Promise.all([
-          setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), {
-            ...updatedTask,
-            userId: user.uid,
-            updatedAt: new Date().toISOString()
-          }),
-          setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
-        ]);
-      } else {
-        // Local storage handling
-        const newTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
-        setTasks(newTasks);
-        
-        // Add history entry
-        const historyEntry = createHistoryEntry(
-          updatedTask,
-          updatedTask.status === 'completed' ? 'COMPLETE' : 'REOPEN',
-          'local-user',
-          [{
-            field: 'status',
-            oldValue: task.status,
-            newValue: updatedTask.status
-          }]
-        );
-        saveHistoryToLocalStorage(historyEntry);
-      }
+      const updatedTasks = await TaskService.toggleTaskComplete(task, tasks, user, isProd);
+      setTasks(updatedTasks);
     } catch (error) {
-      console.error('Error completing task:', error);
+      console.error('Error updating task status:', error);
     }
   };
 
   const handleCreateTask = async (newTask) => {
     try {
-      if (isProd && user) {
-        const db = getFirestore();
-        
-        // Create history entry for new task
-        const historyEntry = createHistoryEntry(newTask, 'CREATE', user.uid);
-        console.log('Creating history entry for new task:', historyEntry);
-
-        await Promise.all([
-          setDoc(doc(db, `users/${user.uid}/tasks/${newTask.id}`), {
-            ...newTask,
-            userId: user.uid,
-            updatedAt: new Date().toISOString()
-          }),
-          setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
-        ]);
-
-        // Update local state immediately
-        setTasks([...tasks, newTask]);
-      } else {
-        // Local storage handling
-        const newTasks = [...tasks, newTask];
-        localStorage.setItem('tasks', JSON.stringify(newTasks));
-        setTasks(newTasks);
-        
-        // Add history entry
-        const historyEntry = createHistoryEntry(newTask, 'CREATE', 'local-user');
-        saveHistoryToLocalStorage(historyEntry);
-      }
+      const updatedTasks = await TaskService.createTask(newTask, user, isProd, tasks);
+      setTasks(updatedTasks);
     } catch (error) {
       console.error('Error creating task:', error);
     }
@@ -249,57 +80,24 @@ function AppContent() {
 
   const handleTasksUpdate = async (updatedTasks) => {
     try {
-      console.log('🎭 DND Update Start:', new Date().getTime());
-      
-      // Set the lastLocalUpdate timestamp
-      const updateTime = new Date().getTime();
-      setLastLocalUpdate(updateTime);
-      
-      setTasks(updatedTasks);
-      console.log('🎭 Local state updated');
-
-      if (isProd && user) {
-        console.log('🎭 Starting Firestore update');
-        const db = getFirestore();
-        const batch = await Promise.all(updatedTasks.map(task => {
-          // Clean up the task object by removing undefined fields
-          const cleanTask = Object.fromEntries(
-            Object.entries({
-              ...task,
-              userId: user.uid,
-              updatedAt: new Date().toISOString(),
-              // Ensure description/details consistency
-              details: task.description || task.details || '',
-              description: task.description || task.details || ''
-            }).filter(([_, v]) => v !== undefined)
-          );
-          
-          console.log('Saving cleaned task to Firestore:', cleanTask);
-          return setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), cleanTask);
-        }));
-        console.log('🎭 Firestore update complete');
-      } else {
-        console.log('Saving to localStorage:', updatedTasks);
-        localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      }
+      const result = await TaskService.bulkUpdateTasks(updatedTasks, user, isProd, lastLocalUpdate, setLastLocalUpdate);
+      setTasks(result);
     } catch (error) {
-      console.error('🎭 Error:', error);
-      setTasks(tasks);
+      console.error('Error updating tasks:', error);
+      setTasks(tasks); // Revert on error
     }
   };
 
   useEffect(() => {
-    if (isProd && user) {
+    if (useFirebase && user) {
       const db = getFirestore();
       const tasksRef = collection(db, `users/${user.uid}/tasks`);
       
       const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
         const currentTime = new Date().getTime();
-        console.log('🔥 Firestore snapshot received:', currentTime);
         
-        // Ignore updates that happen within 1 second of a local update
-        if (lastLocalUpdate && currentTime - lastLocalUpdate < 1000) {
-          console.log('🔥 Ignoring Firestore update due to recent local update');
+        // Ignore updates that happen within 2 seconds of a local update
+        if (lastLocalUpdate && currentTime - lastLocalUpdate < 2000) {
           return;
         }
 
@@ -317,13 +115,13 @@ function AppContent() {
         setTasks(JSON.parse(savedTasks));
       }
     }
-  }, [isProd, user, lastLocalUpdate]);
+  }, [useFirebase, user, lastLocalUpdate]);
 
   if (loading) {
     return <div>Loading...</div>;
   }
 
-  if (isProd && !user) {
+  if (useFirebase && !user) {
     return <Login />;
   }
 

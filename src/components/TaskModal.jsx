@@ -15,16 +15,21 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
-    if (task) {
+    if (!isOpen) {
+      setEditedTask(null);
+    } else if (isOpen && task) {
       setEditedTask(task);
+      setTabValue(0);
     }
-  }, [task]);
+  }, [isOpen, task]);
 
   useEffect(() => {
-    if (isOpen) {
-      titleRef.current?.focus();
+    if (isOpen && titleRef.current) {
+      setTimeout(() => {
+        titleRef.current?.focus();
+      }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, editedTask]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

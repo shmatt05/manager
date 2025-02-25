@@ -1,13 +1,5 @@
-import { useCallback, useState, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import useTaskStore from '../stores/taskStore';
+import { useState, useRef } from 'react';
 import { parse, set, addDays } from 'date-fns';
-
-const taskSchema = z.object({
-  rawText: z.string().min(1, 'Task description is required'),
-});
 
 // Helper function to parse time string
 const parseTimeString = (timeStr) => {
@@ -29,48 +21,10 @@ const parseTimeString = (timeStr) => {
     }
     return parsedTime;
   } catch (error) {
-    console.error('Error parsing time:', error);
     return null;
   }
 };
 
-// Add createTask function
-const createTask = (rawText) => {
-  const now = new Date();
-  const timeMatch = rawText.match(/@(\d{1,2}(?::\d{2})?(?:am|pm)|noon|midnight)/i);
-  let dueDate = null;
-
-  if (timeMatch) {
-    const timeStr = timeMatch[1];
-    const parsedTime = parseTimeString(timeStr);
-    if (parsedTime) {
-      dueDate = set(now, {
-        hours: parsedTime.getHours(),
-        minutes: parsedTime.getMinutes(),
-        seconds: 0,
-        milliseconds: 0
-      });
-      
-      // If the time is earlier today, assume it's for tomorrow
-      if (dueDate < now) {
-        dueDate = addDays(dueDate, 1);
-      }
-    }
-  }
-
-  return {
-    id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    rawText,
-    title: rawText.replace(/@\w+/g, '').trim(),
-    description: rawText,
-    priority: 4,
-    status: 'todo',
-    tags: [],
-    createdAt: now.toISOString(),
-    scheduledFor: 'today',
-    dueDate: dueDate?.toISOString() || null
-  };
-};
 
 const parseTaskText = (text) => {
   const tags = [];
@@ -138,6 +92,7 @@ const TaskCreate = ({ onCreateTask }) => {
 
     onCreateTask(task);
     inputRef.current.value = '';
+    setTaskText('');
     setIsOpen(false);
   };
 

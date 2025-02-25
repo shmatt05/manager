@@ -1,7 +1,6 @@
 import { initializeApp, getApp } from 'firebase/app'
-// Import other necessary Firebase services
 import { getFirestore } from 'firebase/firestore'
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
 
 // Only initialize Firebase in production and when VITE_USE_FIREBASE is true
@@ -21,32 +20,20 @@ if (import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true') {
     appId: import.meta.env.VITE_FIREBASE_APP_ID
   };
 
-  console.log('[Firebase] Initialization attempt');
-
   try {
     app = getApp();
-    console.log('[Firebase] Retrieved existing app');
   } catch {
-    console.log('[Firebase] Initializing new app');
     app = initializeApp(firebaseConfig);
   }
 
   try {
-    console.log('[Firebase] Initializing auth');
     auth = getAuth(app);
-    console.log('[Firebase] Auth initialized');
-
-    console.log('[Firebase] Initializing other services');
     db = getFirestore(app);
     database = getDatabase(app);
-    console.log('[Firebase] All services initialized');
   } catch (error) {
-    console.error('[Firebase] Error during service initialization:', error);
+    // Silently fail, services will be null
   }
 }
-
-// Add a check to see if this module is being imported multiple times
-console.log('[Firebase] Module loaded at:', new Date().toISOString());
 
 // Export services and initialization status
 export { db, auth, database };
