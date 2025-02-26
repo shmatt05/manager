@@ -60,6 +60,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
         p-4 rounded-lg border
         flex flex-col
         transition-colors
+        h-full
         ${className}
       `,
         isOver && 'ring-2 ring-blue-400 ring-opacity-50 bg-opacity-70'
@@ -74,7 +75,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
         items={tasks.map(task => task.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex-1 overflow-visible min-h-[100px]">
+        <div className="flex-1 overflow-y-auto min-h-[100px] max-h-full pr-1">
           {tasks.map((task, index) => (
             <TaskCard
               key={task.id}
@@ -342,10 +343,10 @@ export default function MatrixView({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="h-full p-6">
+      <div className="h-full p-6 flex flex-col">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Priority Matrix</h1>
         
-        <div className="grid grid-cols-2 gap-4 h-[calc(100%-4rem)]">
+        <div className="grid grid-cols-2 gap-4 flex-1">
           {Object.entries(QUADRANTS).slice(0, 4).map(([id, quadrant]) => (
             <Quadrant
               key={id}
@@ -361,10 +362,11 @@ export default function MatrixView({
           ))}
         </div>
         
-        <div className="mt-4">
+        <div className="mt-4 h-48">
           <Quadrant
             id="tomorrow"
             {...QUADRANTS.tomorrow}
+            className={`${QUADRANTS.tomorrow.className} h-full`}
             tasks={quadrantTasks.tomorrow}
             onTaskEdit={handleEditTask}
             onTaskComplete={onTaskComplete}
