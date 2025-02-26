@@ -122,8 +122,8 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
       <div className="fixed inset-0 bg-black/30 z-[90]" aria-hidden="true" />
 
       <div className="fixed inset-0 flex items-center justify-center p-4 z-[100]">
-        <Dialog.Panel className="mx-auto max-w-xl w-full bg-white rounded-lg shadow-xl">
-          <div className="border-b">
+        <Dialog.Panel className="mx-auto max-w-xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="border-b sticky top-0 bg-white z-10">
             <div className="flex">
               <button
                 className={`px-4 py-2 ${tabValue === 0 ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
@@ -140,7 +140,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <TabPanel value={tabValue} index={0}>
               <h2 className="text-xl font-bold mb-4">Edit Task</h2>
               <input
@@ -159,7 +159,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                 onKeyDown={handleKeyDown}
               />
               
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Due Date

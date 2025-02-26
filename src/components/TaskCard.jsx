@@ -68,6 +68,7 @@ export default function TaskCard({
       onClick={() => onEdit(task)}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
+      onTouchStart={() => setShowActions(true)}
     >
       <div className="flex flex-col">
         <div className="flex justify-between">
@@ -119,11 +120,11 @@ export default function TaskCard({
                 e.stopPropagation();
                 onComplete(task);
               }}
-              className="p-1.5 rounded-full bg-blue-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-sm"
+              className="p-1.5 rounded-full bg-blue-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
               title="Restore task"
               style={{ position: 'relative', zIndex: 20 }}
             >
-              <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
+              <ArrowUturnLeftIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
             </button>
           ) : (
             <button
@@ -131,11 +132,11 @@ export default function TaskCard({
                 e.stopPropagation();
                 onComplete(task);
               }}
-              className="p-1.5 rounded-full bg-green-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-green-600 shadow-sm"
+              className="p-1.5 rounded-full bg-green-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-green-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
               title="Complete task"
               style={{ position: 'relative', zIndex: 20 }}
             >
-              <CheckCircleIcon className="w-3.5 h-3.5" />
+              <CheckCircleIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
             </button>
           )}
           <button
@@ -143,11 +144,11 @@ export default function TaskCard({
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
+            className="p-1.5 rounded-full bg-red-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
             title="Delete task"
             style={{ position: 'relative', zIndex: 20 }}
           >
-            <TrashIcon className="w-3.5 h-3.5" />
+            <TrashIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
           </button>
         </div>
       )}
