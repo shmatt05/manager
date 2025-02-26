@@ -81,6 +81,10 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   const handleSave = () => {
     if (!editedTask) return;
     
+    // Get the current values from the refs
+    const updatedTitle = titleRef.current?.value || editedTask.title;
+    const updatedDetails = detailsRef.current?.value || editedTask.details || '';
+    
     // Process due date and time
     let updatedDueDate = null;
     if (dueDate) {
@@ -100,6 +104,9 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
     
     onSave({
       ...editedTask,
+      title: updatedTitle,
+      details: updatedDetails,
+      description: updatedDetails, // Update both fields for compatibility
       dueDate: updatedDueDate
     });
   };

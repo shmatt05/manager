@@ -60,4 +60,39 @@ describe('TaskModal', () => {
     
     expect(mockOnSave).not.toHaveBeenCalled();
   });
+
+  it('updates title and details when saving', () => {
+    // Reset mock before this test
+    mockOnSave.mockReset();
+    
+    render(
+      <TaskModal
+        task={mockTask}
+        isOpen={true}
+        onClose={mockOnClose}
+        onSave={mockOnSave}
+      />
+    );
+
+    const titleInput = screen.getByDisplayValue('Test Task');
+    const detailsInput = screen.getByDisplayValue('Test Details');
+    
+    // Change title and details
+    fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
+    fireEvent.change(detailsInput, { target: { value: 'Updated Details' } });
+    
+    // Click save button
+    const saveButton = screen.getByText('Save');
+    fireEvent.click(saveButton);
+    
+    // Verify that onSave was called with updated values
+    expect(mockOnSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: '1',
+        title: 'Updated Title',
+        details: 'Updated Details',
+        description: 'Updated Details'
+      })
+    );
+  });
 }); 
