@@ -48,10 +48,6 @@ function AppContent() {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
-
     try {
       const updatedTasks = await TaskService.deleteTask(taskId, tasks, user, isProd);
       setTasks(updatedTasks);

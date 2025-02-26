@@ -14,6 +14,7 @@ import TaskCard from '../components/TaskCard';
 import clsx from 'clsx';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import TaskModal from '../components/TaskModal';
+import DeleteDialog from '../components/DeleteDialog';
 import { auth } from '../firebase';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -108,6 +109,8 @@ export default function MatrixView({
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const lastDragTimeRef = useRef(0);
@@ -333,8 +336,20 @@ export default function MatrixView({
   }, [tasks, onTaskUpdate]);
 
   const handleTaskDelete = useCallback(async (taskId) => {
-    onTaskDelete(taskId);
-  }, [onTaskDelete]);
+    const taskToRemove = tasks.find(t => t.id === taskId);
+    if (taskToRemove) {
+      setTaskToDelete(taskToRemove);
+      setIsDeleteDialogOpen(true);
+    }
+  }, [tasks]);
+
+  const confirmDelete = useCallback(() => {
+    if (taskToDelete) {
+      onTaskDelete(taskToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setTaskToDelete(null);
+    }
+  }, [taskToDelete, onTaskDelete]);
 
   if (loading) {
     return <div>Loading tickets...</div>;
@@ -404,6 +419,13 @@ export default function MatrixView({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleTaskSave}
+      />
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={confirmDelete}
+        taskTitle={taskToDelete?.title || ''}
       />
     </DndContext>
   );
