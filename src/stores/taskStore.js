@@ -31,7 +31,7 @@ const useTaskStore = create(
         };
         
         set(state => ({
-          tasks: [...state.tasks, newTask]
+          tasks: [newTask, ...state.tasks]
         }));
       },
 

@@ -1,12 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { format, isPast, parseISO } from 'date-fns';
 import { CSS } from '@dnd-kit/utilities';
+import { createPortal } from 'react-dom';
 import { 
   TrashIcon, 
   CheckCircleIcon, 
   ArrowUturnLeftIcon, 
   ChevronUpIcon, 
-  ChevronDownIcon 
+  ChevronDownIcon,
+  ArrowUpCircleIcon,
+  ArrowDownCircleIcon,
+  ExclamationCircleIcon,
+  QueueListIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSortable } from '@dnd-kit/sortable';
@@ -16,7 +21,7 @@ const priorityColors = {
   2: 'bg-yellow-100 border-yellow-200', // Delegate (Urgent & Not Important)
   3: 'bg-blue-100 border-blue-200',    // Schedule (Not Urgent & Important)
   4: 'bg-gray-100 border-gray-200',    // Eliminate (Not Urgent & Not Important)
-  5: 'bg-purple-100 border-purple-200', // Tomorrow
+  5: 'bg-purple-100 border-purple-200', // Backlog
 };
 
 export default function TaskCard({ 
@@ -24,9 +29,13 @@ export default function TaskCard({
   className = '', 
   onEdit = () => {}, 
   onDelete = () => {},
-  onComplete = () => {} 
+  onComplete = () => {},
+  onMoveToQuadrant = () => {} 
 }) {
   const [showActions, setShowActions] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const contextMenuRef = useRef(null);
 
   const {
     attributes,
@@ -51,6 +60,36 @@ export default function TaskCard({
 
   // Check if task is overdue
   const isOverdue = task.dueDate && task.status !== 'completed' && isPast(parseISO(task.dueDate));
+  
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
+        setShowContextMenu(false);
+      }
+    }
+    
+    if (showContextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showContextMenu]);
+  
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop event propagation
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+  
+  const handleMoveToQuadrant = (e, quadrant) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowContextMenu(false);
+    if (onMoveToQuadrant) {
+      onMoveToQuadrant(task.id, quadrant);
+    }
+  };
 
   return (
     <div
@@ -69,6 +108,7 @@ export default function TaskCard({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
       onTouchStart={() => setShowActions(true)}
+      onContextMenu={handleContextMenu}
     >
       <div className="flex flex-col">
         <div className="flex justify-between">
@@ -151,6 +191,66 @@ export default function TaskCard({
             <TrashIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
           </button>
         </div>
+      )}
+
+      {showContextMenu && createPortal(
+        <div 
+          ref={contextMenuRef}
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden" 
+          style={{ 
+            left: `${contextMenuPosition.x}px`, 
+            top: `${contextMenuPosition.y}px`,
+            minWidth: '180px',
+            zIndex: 9999
+          }}
+        >
+          <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
+            <h3 className="text-sm font-medium text-gray-700">Move to</h3>
+          </div>
+          
+          <div className="p-1">
+            <button 
+              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-red-50 rounded-md"
+              onClick={(e) => handleMoveToQuadrant(e, 'urgent-important')}
+            >
+              <ExclamationCircleIcon className="w-4 h-4 mr-2 text-red-500" />
+              <span>Do (Urgent)</span>
+            </button>
+            
+            <button 
+              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-blue-50 rounded-md"
+              onClick={(e) => handleMoveToQuadrant(e, 'not-urgent-important')}
+            >
+              <ArrowUpCircleIcon className="w-4 h-4 mr-2 text-blue-500" />
+              <span>Schedule</span>
+            </button>
+            
+            <button 
+              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-yellow-50 rounded-md"
+              onClick={(e) => handleMoveToQuadrant(e, 'urgent-not-important')}
+            >
+              <ArrowDownCircleIcon className="w-4 h-4 mr-2 text-yellow-500" />
+              <span>Delegate</span>
+            </button>
+            
+            <button 
+              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 rounded-md"
+              onClick={(e) => handleMoveToQuadrant(e, 'not-urgent-not-important')}
+            >
+              <ChevronDownIcon className="w-4 h-4 mr-2 text-gray-500" />
+              <span>Eliminate</span>
+            </button>
+            
+            <button 
+              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-purple-50 rounded-md"
+              onClick={(e) => handleMoveToQuadrant(e, 'backlog')}
+            >
+              <QueueListIcon className="w-4 h-4 mr-2 text-purple-500" />
+              <span>Backlog</span>
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -42,14 +42,14 @@ const QUADRANTS = {
     description: 'Not Urgent or Important',
     className: 'bg-gray-50 border-gray-200',
   },
-  'tomorrow': {
-    title: 'Tomorrow',
-    description: 'Scheduled for Tomorrow',
+  'backlog': {
+    title: 'Backlog',
+    description: 'Scheduled for Later',
     className: 'bg-purple-50 border-purple-200',
   }
 };
 
-function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTaskComplete, onTaskDelete }) {
+function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTaskComplete, onTaskDelete, onMoveToQuadrant }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
@@ -89,6 +89,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
                 onEdit={() => onTaskEdit(task)}
                 onComplete={() => onTaskComplete(task)}
                 onDelete={() => onTaskDelete(task.id)}
+                onMoveToQuadrant={(taskId, quadrant) => onMoveToQuadrant(taskId, quadrant)}
               />
             ))
           )}
@@ -178,14 +179,14 @@ export default function MatrixView({
       'not-urgent-important': [],
       'urgent-not-important': [],
       'not-urgent-not-important': [],
-      'tomorrow': []
+      'backlog': []
     };
 
     localTasks
       .filter(task => task.status !== 'completed')
       .forEach(task => {
         if (task.scheduledFor === 'tomorrow') {
-          sorted['tomorrow'].push(task);
+          sorted['backlog'].push(task);
           return;
         }
 
@@ -264,24 +265,29 @@ export default function MatrixView({
     if (currentQuadrant !== targetQuadrant) {
       const updatedTask = {
         ...task,
-        scheduledFor: targetQuadrant === 'tomorrow' ? 'tomorrow' : 'today',
+        scheduledFor: targetQuadrant === 'backlog' ? 'tomorrow' : 'today',
         updatedAt: new Date().toISOString()
       };
+      
+      // Remove any existing quadrant tags
+      const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
+      let filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
 
       if (targetQuadrant === 'urgent-important') {
         updatedTask.priority = 1;
-        updatedTask.tags = [...new Set([...task.tags, 'important'])];
+        updatedTask.tags = [...new Set([...filteredTags, 'important', 'do'])];
       } else if (targetQuadrant === 'not-urgent-important') {
         updatedTask.priority = 3;
-        updatedTask.tags = [...new Set([...task.tags, 'important'])];
+        updatedTask.tags = [...new Set([...filteredTags, 'important', 'schedule'])];
       } else if (targetQuadrant === 'urgent-not-important') {
         updatedTask.priority = 2;
-        updatedTask.tags = task.tags.filter(tag => tag !== 'important');
+        updatedTask.tags = [...new Set([...filteredTags.filter(tag => tag !== 'important'), 'delegate'])];
       } else if (targetQuadrant === 'not-urgent-not-important') {
         updatedTask.priority = 4;
-        updatedTask.tags = task.tags.filter(tag => tag !== 'important');
-      } else if (targetQuadrant === 'tomorrow') {
+        updatedTask.tags = [...new Set([...filteredTags.filter(tag => tag !== 'important'), 'eliminate'])];
+      } else if (targetQuadrant === 'backlog') {
         updatedTask.priority = 5;
+        updatedTask.tags = [...new Set([...filteredTags, 'backlog'])];
       }
 
       const updatedLocalTasks = localTasks.map(t => 
@@ -304,7 +310,7 @@ export default function MatrixView({
   }, []);
 
   const getTaskQuadrant = (task) => {
-    if (task.scheduledFor === 'tomorrow') return 'tomorrow';
+    if (task.scheduledFor === 'tomorrow') return 'backlog';
     
     const isUrgent = task.priority <= 2;
     const isImportant = task.tags.includes('important');
@@ -342,6 +348,104 @@ export default function MatrixView({
       setIsDeleteDialogOpen(true);
     }
   }, [tasks]);
+  
+  const handleSendAllToBacklog = useCallback(() => {
+    // Only move tasks from Do and Schedule quadrants (urgent-important and not-urgent-important)
+    const tasksToMove = localTasks.filter(task => {
+      if (task.status === 'completed' || task.scheduledFor === 'tomorrow') {
+        return false;
+      }
+      const isImportant = task.tags.includes('important');
+      return isImportant; // Only move tasks with the 'important' tag (Do and Schedule)
+    });
+    
+    if (tasksToMove.length === 0) return;
+    
+    const updatedTasks = localTasks.map(task => {
+      // Only move tasks from Do and Schedule
+      if (task.status !== 'completed' && 
+          task.scheduledFor !== 'tomorrow' && 
+          task.tags.includes('important')) {
+          
+        // Remove existing quadrant tags
+        const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
+        const filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
+        
+        return {
+          ...task,
+          scheduledFor: 'tomorrow',
+          priority: 5,
+          tags: [...new Set([...filteredTags, 'backlog'])],
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return task;
+    });
+    
+    setLocalTasks(updatedTasks);
+    
+    // Clear any pending updates and add the current ones
+    pendingUpdatesRef.current = new Map();
+    updatedTasks.forEach(task => {
+      pendingUpdatesRef.current.set(task.id, task);
+    });
+    
+    onTaskUpdate(updatedTasks).finally(() => {
+      updatedTasks.forEach(task => {
+        pendingUpdatesRef.current.delete(task.id);
+      });
+    });
+  }, [localTasks, onTaskUpdate]);
+  
+  const handleMoveToQuadrant = useCallback((taskId, targetQuadrant) => {
+    const task = localTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const currentQuadrant = getTaskQuadrant(task);
+    if (currentQuadrant === targetQuadrant) return;
+    
+    // Create a copy of the task with updated properties
+    const updatedTask = {
+      ...task,
+      scheduledFor: targetQuadrant === 'backlog' ? 'tomorrow' : 'today',
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Remove any existing quadrant tags
+    const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
+    let filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
+    
+    // Set properties based on target quadrant
+    if (targetQuadrant === 'urgent-important') {
+      updatedTask.priority = 1;
+      updatedTask.tags = [...new Set([...filteredTags, 'important', 'do'])];
+    } else if (targetQuadrant === 'not-urgent-important') {
+      updatedTask.priority = 3;
+      updatedTask.tags = [...new Set([...filteredTags, 'important', 'schedule'])];
+    } else if (targetQuadrant === 'urgent-not-important') {
+      updatedTask.priority = 2;
+      updatedTask.tags = [...new Set([...filteredTags.filter(tag => tag !== 'important'), 'delegate'])];
+    } else if (targetQuadrant === 'not-urgent-not-important') {
+      updatedTask.priority = 4;
+      updatedTask.tags = [...new Set([...filteredTags.filter(tag => tag !== 'important'), 'eliminate'])];
+    } else if (targetQuadrant === 'backlog') {
+      updatedTask.priority = 5;
+      updatedTask.tags = [...new Set([...filteredTags, 'backlog'])];
+    }
+    
+    // Update the tasks
+    const updatedTasks = localTasks.map(t => 
+      t.id === updatedTask.id ? updatedTask : t
+    );
+    
+    pendingUpdatesRef.current.set(updatedTask.id, updatedTask);
+    
+    setLocalTasks(updatedTasks);
+    
+    onTaskUpdate(updatedTasks).finally(() => {
+      pendingUpdatesRef.current.delete(updatedTask.id);
+    });
+  }, [localTasks, onTaskUpdate, getTaskQuadrant]);
 
   const confirmDelete = useCallback(() => {
     if (taskToDelete) {
@@ -364,7 +468,15 @@ export default function MatrixView({
       onDragCancel={handleDragCancel}
     >
       <div className="min-h-full p-3 sm:p-6 flex flex-col overflow-y-auto">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Priority Matrix</h1>
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Priority Matrix</h1>
+          <button 
+            className="px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium"
+            onClick={handleSendAllToBacklog}
+          >
+            Send All to Backlog
+          </button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Object.entries(QUADRANTS).slice(0, 4).map(([id, quadrant]) => (
@@ -378,19 +490,21 @@ export default function MatrixView({
               onTaskEdit={handleEditTask}
               onTaskComplete={onTaskComplete}
               onTaskDelete={handleTaskDelete}
+              onMoveToQuadrant={handleMoveToQuadrant}
             />
           ))}
         </div>
         
         <div className="mt-6">
           <Quadrant
-            id="tomorrow"
-            {...QUADRANTS.tomorrow}
-            className={`${QUADRANTS.tomorrow.className}`}
-            tasks={quadrantTasks.tomorrow}
+            id="backlog"
+            {...QUADRANTS.backlog}
+            className={`${QUADRANTS.backlog.className}`}
+            tasks={quadrantTasks.backlog}
             onTaskEdit={handleEditTask}
             onTaskComplete={onTaskComplete}
             onTaskDelete={handleTaskDelete}
+            onMoveToQuadrant={handleMoveToQuadrant}
           />
         </div>
       </div>

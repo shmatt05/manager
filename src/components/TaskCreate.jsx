@@ -49,11 +49,11 @@ const parseTaskText = (text) => {
 
   // Map special tags to quadrants
   const quadrantTags = {
-    'do': { priority: 1, tags: ['important'] },         // urgent-important
-    'schedule': { priority: 3, tags: ['important'] },   // not-urgent-important
-    'delegate': { priority: 2, tags: [] },              // urgent-not-important
-    'eliminate': { priority: 4, tags: [] },             // not-urgent-not-important
-    'tomorrow': { scheduledFor: 'tomorrow', priority: 5 }
+    'do': { priority: 1, tags: ['important', 'do'] },         // urgent-important
+    'schedule': { priority: 3, tags: ['important', 'schedule'] },   // not-urgent-important
+    'delegate': { priority: 2, tags: ['delegate'] },               // urgent-not-important
+    'eliminate': { priority: 4, tags: ['eliminate'] },             // not-urgent-not-important
+    'backlog': { scheduledFor: 'tomorrow', priority: 5, tags: ['backlog'] }
   };
 
   let priority = 4;

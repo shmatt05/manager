@@ -27,11 +27,11 @@ export const TaskService = {
         setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
       ]);
 
-      // Return the updated tasks array
-      return [...tasks, newTask];
+      // Return the updated tasks array with new task at the beginning
+      return [newTask, ...tasks];
     } else {
       // Local storage handling
-      const newTasks = [...tasks, newTask];
+      const newTasks = [newTask, ...tasks];
       localStorage.setItem('tasks', JSON.stringify(newTasks));
       
       // Add history entry
@@ -248,7 +248,7 @@ export const TaskService = {
     
     // Special handling for quadrant changes
     const getQuadrant = (task) => {
-      if (task.scheduledFor === 'tomorrow') return 'Tomorrow';
+      if (task.scheduledFor === 'tomorrow') return 'Backlog';
       
       const isUrgent = task.priority <= 2;
       const isImportant = task.tags?.includes('important') || false;
