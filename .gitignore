@@ -18,6 +18,10 @@
 .env.production.local
 .env.production
 
+# Firebase files
+/.firebase/
+firebase-debug.log
+
 # Logs
 logs
 *.log
