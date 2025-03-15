@@ -2,250 +2,421 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import TicketHistory from './TicketHistory';
 import { format, parseISO } from 'date-fns';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, CheckIcon, TrashIcon } from '@heroicons/react/24/outline';
 
+// Tab panel component
 function TabPanel({ children, value, index }) {
   if (value !== index) return null;
-  return <div className="py-4">{children}</div>;
+  return <div className="animate-fade-in">{children}</div>;
+}
+
+// Ripple effect component for buttons
+function Ripple() {
+  const [ripples, setRipples] = useState([]);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (ripples.length > 0) {
+      // Clean up any existing timeout to prevent multiple cleanups
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // Clean up ripples after animation is done with a shorter timeout
+      timeoutRef.current = setTimeout(() => {
+        setRipples([]);
+        timeoutRef.current = null;
+      }, 500);
+      
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      };
+    }
+  }, [ripples]);
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const addRipple = (e) => {
+    // Prevent double-triggers
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    
+    const button = e.currentTarget;
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top - size / 2;
+    
+    const newRipple = {
+      x,
+      y,
+      size,
+      id: Date.now()
+    };
+    
+    // Reset ripples before adding a new one to prevent double animations
+    setRipples([newRipple]);
+  };
+
+  return {
+    rippleJSX: (
+      <>
+        {ripples.map(ripple => (
+          <span 
+            key={ripple.id}
+            className="absolute rounded-full animate-ripple bg-white bg-opacity-30 pointer-events-none"
+            style={{
+              left: ripple.x,
+              top: ripple.y,
+              width: ripple.size,
+              height: ripple.size
+            }}
+          />
+        ))}
+      </>
+    ),
+    onMouseDown: addRipple
+  };
+}
+
+// Floating label input component
+function FloatingLabelInput({ label, type = "text", value, onChange, placeholder, className, ...props }) {
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef(null);
+  
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => setIsFocused(value !== '');
+  
+  useEffect(() => {
+    // Initialize the label position based on whether there's a value
+    setIsFocused(value !== '');
+  }, [value]);
+  
+  return (
+    <div className={`relative ${className}`}>
+      <label 
+        className={`absolute left-3 transition-all duration-200 pointer-events-none select-none ${
+          isFocused 
+            ? 'transform -translate-y-[1.15rem] scale-75 text-primary-500 dark:text-primary-400 origin-[0_0]' 
+            : 'transform translate-y-0 text-gray-500 dark:text-gray-400'
+        }`}
+        onClick={() => inputRef.current?.focus()}
+      >
+        {label}
+      </label>
+      <input
+        ref={inputRef}
+        type={type}
+        className="block w-full px-3 pb-2.5 pt-4 text-sm text-gray-900 dark:text-white bg-transparent rounded-lg border border-gray-300 dark:border-gray-600 appearance-none focus:outline-none focus:ring-0 focus:border-primary-500 dark:focus:border-primary-500 peer"
+        placeholder={isFocused ? placeholder : ""}
+        value={value}
+        onChange={onChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        {...props}
+      />
+    </div>
+  );
 }
 
 export default function TaskModal({ task, isOpen, onClose, onSave }) {
-  const titleRef = useRef(null);
-  const detailsRef = useRef(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [editedTask, setEditedTask] = useState(null);
+  const [activeTab, setActiveTab] = useState('details');
+  const [editedTask, setEditedTask] = useState({ ...task });
   const [newTag, setNewTag] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [dueTime, setDueTime] = useState('');
+  const detailsRipple = Ripple();
+  const historyRipple = Ripple();
+  const cancelRipple = Ripple();
+  const saveRipple = Ripple();
+  const addTagRipple = Ripple();
+  const modalRef = useRef(null);
 
+  // Define tabs
+  const tabs = [
+    { id: 'details', label: 'Details' },
+    { id: 'history', label: 'History' }
+  ];
+
+  // Handle modal opening/closing and task changes
   useEffect(() => {
     if (!isOpen) {
-      setEditedTask(null);
+      setEditedTask({ ...task });
       setDueDate('');
-      setDueTime('');
+      setActiveTab('details');
     } else if (isOpen && task) {
       setEditedTask(task);
-      setTabValue(0);
       
-      // Initialize due date and time if task has a dueDate
+      // Initialize due date if task has a dueDate
       if (task.dueDate) {
         try {
-          const date = parseISO(task.dueDate);
-          setDueDate(format(date, 'yyyy-MM-dd'));
-          setDueTime(format(date, 'HH:mm'));
+          setDueDate(task.dueDate.slice(0, 16)); // Format for datetime-local input
         } catch (error) {
           console.error('Error parsing due date:', error);
           setDueDate('');
-          setDueTime('');
         }
       } else {
         setDueDate('');
-        setDueTime('');
       }
     }
   }, [isOpen, task]);
 
   useEffect(() => {
-    if (isOpen && titleRef.current) {
-      setTimeout(() => {
-        titleRef.current?.focus();
-      }, 50);
-    }
-  }, [isOpen, editedTask]);
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSave();
-    } else if (e.key === 'Escape') {
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
+
+  const handleClickOutside = (e) => {
+    if (modalRef.current && !modalRef.current.contains(e.target)) {
       onClose();
     }
   };
 
-  const handleAddTag = () => {
-    if (!newTag.trim() || !editedTask) return;
-    setEditedTask(prev => ({
-      ...prev,
-      tags: [...new Set([...(prev.tags || []), newTag.trim()])]
-    }));
-    setNewTag('');
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditedTask((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleRemoveTag = (tagToRemove) => {
-    if (!editedTask) return;
-    setEditedTask(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
+  const handleDateChange = (e) => {
+    const { name, value } = e.target;
+    // Convert the date string to a timestamp
+    const date = new Date(value);
+    const timestamp = date.getTime();
+    setEditedTask((prev) => ({ ...prev, [name]: timestamp }));
   };
 
   const handleSave = () => {
-    if (!editedTask) return;
-    
-    // Get the current values from the refs
-    const updatedTitle = titleRef.current?.value || editedTask.title;
-    const updatedDetails = detailsRef.current?.value || editedTask.details || '';
-    
-    // Process due date and time
-    let updatedDueDate = null;
-    if (dueDate) {
-      try {
-        if (dueTime) {
-          // Combine date and time
-          const dateTimeStr = `${dueDate}T${dueTime}`;
-          updatedDueDate = new Date(dateTimeStr).toISOString();
-        } else {
-          // Use just the date at 00:00
-          updatedDueDate = new Date(`${dueDate}T00:00:00`).toISOString();
-        }
-      } catch (error) {
-        console.error('Error setting due date:', error);
-      }
-    }
-    
-    onSave({
-      ...editedTask,
-      title: updatedTitle,
-      details: updatedDetails,
-      description: updatedDetails, // Update both fields for compatibility
-      dueDate: updatedDueDate
-    });
+    onSave(editedTask);
+    onClose();
   };
 
-  if (!isOpen || !editedTask) return null;
+  const handleDelete = () => {
+    // We'll use the onSave callback with a special action
+    onSave({ ...editedTask, _action: 'delete' });
+    onClose();
+  };
+
+  const handleComplete = () => {
+    // We'll use the onSave callback with a special action
+    onSave({ ...editedTask, _action: 'toggleComplete' });
+    onClose();
+  };
+
+  const handleReopen = () => {
+    // We'll use the onSave callback with a special action
+    onSave({ ...editedTask, _action: 'toggleComplete' });
+    onClose();
+  };
+
+  const formatDateForInput = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return format(date, "yyyy-MM-dd'T'HH:mm");
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose}
-      className="relative z-[100]"
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={handleClickOutside}
     >
-      <div className="fixed inset-0 bg-black/30 z-[90]" aria-hidden="true" />
+      <div 
+        ref={modalRef} 
+        className="bg-white dark:bg-dark-surface-2 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-surface-6 px-5 py-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary select-none">
+            {task?.completed ? 'Completed Task' : 'Task Details'}
+          </h2>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary select-none transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-dark-surface-4"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
 
-      <div className="fixed inset-0 flex items-center justify-center p-4 z-[100]">
-        <Dialog.Panel className="mx-auto max-w-xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
-          <div className="border-b sticky top-0 bg-white z-10">
-            <div className="flex">
-              <button
-                className={`px-4 py-2 ${tabValue === 0 ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
-                onClick={() => setTabValue(0)}
-              >
-                Details
-              </button>
-              <button
-                className={`px-4 py-2 ${tabValue === 1 ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
-                onClick={() => setTabValue(1)}
-              >
-                History
-              </button>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-dark-surface-6 px-5">
+          <button
+            className={`py-2 px-4 font-medium text-sm border-b-2 transition-colors select-none ${
+              activeTab === 'details'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary'
+            }`}
+            onClick={() => setActiveTab('details')}
+          >
+            Details
+          </button>
+          <button
+            className={`py-2 px-4 font-medium text-sm border-b-2 transition-colors select-none ${
+              activeTab === 'history'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary'
+            }`}
+            onClick={() => setActiveTab('history')}
+          >
+            History
+          </button>
+        </div>
 
-          <div className="p-4 sm:p-6">
-            <TabPanel value={tabValue} index={0}>
-              <h2 className="text-xl font-bold mb-4">Edit Task</h2>
-              <input
-                ref={titleRef}
-                type="text"
-                defaultValue={editedTask.title}
-                className="w-full p-2 border rounded mb-4"
-                placeholder="Task title"
-                onKeyDown={handleKeyDown}
-              />
-              <textarea
-                ref={detailsRef}
-                defaultValue={editedTask.details || ''}
-                className="w-full p-2 border rounded mb-4 min-h-[100px]"
-                placeholder="Add details (Shift + Enter for new line)"
-                onKeyDown={handleKeyDown}
-              />
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'details' ? (
+            <div className="space-y-3">
+              {/* Title */}
+              <div>
+                <label htmlFor="title" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  value={editedTask.title || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label htmlFor="description" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={editedTask.description || ''}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
+                />
+              </div>
+
+              {/* Two column layout for Due Date and Tags */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Due Date */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="dueDate" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
                     Due Date
                   </label>
                   <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    type="datetime-local"
+                    id="dueDate"
+                    name="dueDate"
+                    value={formatDateForInput(editedTask.dueDate)}
+                    onChange={handleDateChange}
+                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
                   />
                 </div>
+
+                {/* Tags */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due Time
+                  <label htmlFor="tags" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                    Tags
                   </label>
                   <input
-                    type="time"
-                    value={dueTime}
-                    onChange={(e) => setDueTime(e.target.value)}
-                    className="w-full p-2 border rounded"
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(editedTask.tags || []).map(tag => (
-                    <span 
-                      key={tag} 
-                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm 
-                               font-medium bg-blue-100 text-blue-800"
-                    >
-                      #{tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
                     type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                    placeholder="Add tag..."
-                    className="flex-1 px-3 py-2 border rounded-md"
+                    id="tags"
+                    name="tags"
+                    value={editedTask.tags ? editedTask.tags.join(', ') : ''}
+                    onChange={(e) => {
+                      const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
+                      setEditedTask(prev => ({ ...prev, tags: tagsArray }));
+                    }}
+                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
+                    placeholder="Enter tags separated by commas"
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddTag}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Add
-                  </button>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Save
-                </button>
-              </div>
-            </TabPanel>
 
-            <TabPanel value={tabValue} index={1}>
-              <TicketHistory ticketId={editedTask.id} />
-            </TabPanel>
-          </div>
-        </Dialog.Panel>
+              {/* Created and Updated dates - read only */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-500 dark:text-dark-text-secondary mt-1 select-none">
+                <div>
+                  <span className="font-medium">Created:</span>{' '}
+                  {task?.createdAt ? format(new Date(task.createdAt), 'PPpp') : 'N/A'}
+                </div>
+                <div>
+                  <span className="font-medium">Last Updated:</span>{' '}
+                  {task?.updatedAt ? format(new Date(task.updatedAt), 'PPpp') : 'N/A'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <TicketHistory taskId={task?.id} />
+          )}
+        </div>
+
+        {/* Footer with action buttons */}
+        <div className="border-t border-gray-200 dark:border-dark-surface-6 px-5 py-3 flex flex-wrap gap-2 justify-end select-none">
+          {task?.completed ? (
+            <button
+              onClick={handleReopen}
+              className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
+            >
+              <ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-1 inline-block" />
+              Reopen Task
+            </button>
+          ) : (
+            <>
+              {task && (
+                <button
+                  onClick={handleComplete}
+                  className="px-3 py-1.5 rounded-md bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium transition-colors select-none"
+                >
+                  <CheckIcon className="w-3.5 h-3.5 mr-1 inline-block" />
+                  Mark Complete
+                </button>
+              )}
+              
+              {task && (
+                <button
+                  onClick={handleDelete}
+                  className="px-3 py-1.5 rounded-md bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-medium transition-colors select-none"
+                >
+                  <TrashIcon className="w-3.5 h-3.5 mr-1 inline-block" />
+                  Delete
+                </button>
+              )}
+            </>
+          )}
+          
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={handleSave}
+            className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-xs font-medium transition-colors select-none"
+          >
+            {task ? 'Save Changes' : 'Create Task'}
+          </button>
+        </div>
       </div>
-    </Dialog>
+    </div>
   );
 } 

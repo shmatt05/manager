@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { QueryClient, QueryClientProvider } from 'react-query'
 import MatrixView from './views/MatrixView'
 import CompletedView from './views/CompletedView'
@@ -28,6 +28,7 @@ function AppContent() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [lastLocalUpdate, setLastLocalUpdate] = useState(null)
+  const [sendAllToBacklogFn, setSendAllToBacklogFn] = useState(null)
   const { user, loading } = useAuth()
   const { isProd, useFirebase } = config
 
@@ -38,6 +39,24 @@ function AppContent() {
 
   const handleTaskSave = async (updatedTask) => {
     try {
+      // Handle special actions
+      if (updatedTask._action) {
+        if (updatedTask._action === 'delete') {
+          await handleDeleteTask(updatedTask.id);
+          setIsModalOpen(false);
+          setSelectedTask(null);
+          return;
+        } else if (updatedTask._action === 'toggleComplete') {
+          await handleTaskComplete(updatedTask);
+          setIsModalOpen(false);
+          setSelectedTask(null);
+          return;
+        }
+        // Remove the _action property before saving
+        const { _action, ...taskToSave } = updatedTask;
+        updatedTask = taskToSave;
+      }
+
       const updatedTasks = await TaskService.updateTask(updatedTask, tasks, user, isProd);
       setTasks(updatedTasks);
       setIsModalOpen(false);
@@ -122,16 +141,17 @@ function AppContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-blue-50">
+    <div className="flex flex-col h-screen bg-blue-50 dark:bg-dark-background noise-texture">
       <Header 
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onSendAllToBacklog={sendAllToBacklogFn}
       >
         <TaskCreate onCreateTask={handleCreateTask} />
       </Header>
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto scrollbar-subtle">
         {activeTab === 'matrix' ? (
           <MatrixView 
             tasks={tasks}
@@ -140,6 +160,7 @@ function AppContent() {
             onTaskSave={handleTaskSave}
             onTaskDelete={handleDeleteTask}
             onTaskComplete={handleTaskComplete}
+            setSendAllToBacklogFn={setSendAllToBacklogFn}
           />
         ) : activeTab === 'completed' ? (
           <CompletedView 

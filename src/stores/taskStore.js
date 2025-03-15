@@ -57,7 +57,7 @@ const useTaskStore = create(
       setTasks: (tasks) => set({ tasks }),
     }),
     {
-      name: 'taskflow-storage',
+      name: 'task-zero-storage',
     }
   )
 )

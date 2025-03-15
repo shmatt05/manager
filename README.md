@@ -1,4 +1,4 @@
-# Task Matrix
+# Task Zero (TØ)
 
 A modern task management application based on the Eisenhower Matrix methodology to help you prioritize tasks and boost productivity.
 

@@ -1,7 +1,205 @@
+/* Import Inter font for a premium sans-serif look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Apply Google Sans for headings (requires hosting or use Google fonts alternative) */
+@font-face {
+  font-family: 'Google Sans';
+  src: url('https://fonts.gstatic.com/s/googlesans/v29/4UaGrENHsxJlGDuGo1OIlL3Owps.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans';
+  src: url('https://fonts.gstatic.com/s/googlesans/v29/4UabrENHsxJlGDuGo1OIlLU94YtzCwY.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans';
+  src: url('https://fonts.gstatic.com/s/googlesans/v29/4UabrENHsxJlGDuGo1OIlLV154tzCwY.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Spacing baseline of 8px */
+  --spacing-unit: 8px;
+  /* Variables for standardized motion */
+  --motion-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-deceleration: cubic-bezier(0, 0, 0.2, 1);
+  --motion-acceleration: cubic-bezier(0.4, 0, 1, 1);
+  /* Transition durations */
+  --duration-short: 150ms;
+  --duration-medium: 200ms;
+  --duration-long: 300ms;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-  @apply antialiased text-gray-900;
+  @apply antialiased text-surface-600 dark:text-dark-text-primary dark:bg-dark-background;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s var(--motion-standard);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', 'Google Sans', 'Roboto', sans-serif;
+  @apply font-medium;
+  line-height: 1.3;
+}
+
+h1 { @apply text-3xl; }
+h2 { @apply text-2xl; }
+h3 { @apply text-xl; }
+h4 { @apply text-lg; }
+h5 { @apply text-base font-semibold; }
+h6 { @apply text-sm font-semibold; }
+
+/* Global input styling */
+input, textarea, select {
+  @apply transition-all duration-200 ease-in-out;
+  font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+/* Focus ring styling for accessibility */
+*:focus-visible {
+  @apply outline-none ring-2 ring-primary-400 ring-offset-1 ring-offset-surface-50 dark:ring-offset-dark-surface-3;
+}
+
+/* Button styling */
+.btn {
+  @apply font-medium px-3 py-1.5 rounded-md transition-all duration-200 flex items-center justify-center;
+  font-family: 'Inter', 'Google Sans', 'Roboto', sans-serif;
+  letter-spacing: 0.01em;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary {
+  @apply bg-primary-500 hover:bg-primary-600 text-white shadow-subtle;
+}
+
+.btn-secondary {
+  @apply bg-surface-100 hover:bg-surface-200 text-surface-800 dark:bg-dark-surface-3 dark:text-dark-text-primary dark:hover:bg-dark-surface-4;
+}
+
+.btn-text {
+  @apply bg-transparent hover:bg-surface-100 text-primary-500 dark:hover:bg-dark-surface-2;
+}
+
+/* Ripple effect for buttons */
+.ripple {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+
+/* Subtle noise texture for backgrounds */
+.noise-texture {
+  position: relative;
+}
+
+.noise-texture::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+}
+
+/* Elevation classes with proper dark mode adjustments */
+.elevation-1 {
+  @apply shadow-subtle dark:bg-dark-surface-1;
+}
+
+.elevation-2 {
+  @apply shadow-medium dark:bg-dark-surface-2;
+}
+
+.elevation-3 {
+  @apply shadow-strong dark:bg-dark-surface-3;
+}
+
+/* Force dark mode regardless of system preference */
+@media (prefers-color-scheme: light) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Compact card styling */
+.compact-card {
+  @apply p-2 rounded-md border border-surface-200/50 dark:border-dark-surface-6/50;
+}
+
+/* Compact form controls */
+.form-control-compact {
+  @apply py-1 px-2 text-sm;
+}
+
+/* Dividers */
+.divider {
+  @apply h-px w-full bg-surface-200 dark:bg-dark-surface-6;
+}
+
+/* Truncate text with ellipsis */
+.truncate-text {
+  @apply truncate;
+}
+
+/* Subtle hover effect */
+.hover-subtle {
+  @apply transition-colors duration-200;
+}
+.hover-subtle:hover {
+  @apply bg-surface-100 dark:bg-dark-surface-3;
+}
+
+/* Compact table */
+.table-compact {
+  @apply w-full text-sm;
+}
+.table-compact th,
+.table-compact td {
+  @apply py-1 px-2;
+}
+
+/* Subtle scrollbar */
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-subtle::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 dark:bg-dark-surface-6 rounded-full;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-400 dark:bg-dark-surface-8;
 } 

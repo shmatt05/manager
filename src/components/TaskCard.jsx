@@ -11,18 +11,140 @@ import {
   ArrowUpCircleIcon,
   ArrowDownCircleIcon,
   ExclamationCircleIcon,
-  QueueListIcon
+  QueueListIcon,
+  ClockIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { useSortable } from '@dnd-kit/sortable';
 
+// Material Design inspired priority colors
 const priorityColors = {
-  1: 'bg-red-100 border-red-200',     // Do (Urgent & Important)
-  2: 'bg-yellow-100 border-yellow-200', // Delegate (Urgent & Not Important)
-  3: 'bg-blue-100 border-blue-200',    // Schedule (Not Urgent & Important)
-  4: 'bg-gray-100 border-gray-200',    // Eliminate (Not Urgent & Not Important)
-  5: 'bg-purple-100 border-purple-200', // Backlog
+  1: {
+    bg: 'bg-error/5',
+    darkBg: 'dark:bg-dark-card-do',
+    border: 'border-error/20',
+    darkBorder: 'dark:border-dark-surface-6',
+    accent: 'bg-error/10',
+    darkAccent: 'dark:bg-error/15',
+    icon: 'text-error dark:text-error/90',
+  },
+  2: {
+    bg: 'bg-warning/5',
+    darkBg: 'dark:bg-dark-card-delegate',
+    border: 'border-warning/20',
+    darkBorder: 'dark:border-dark-surface-6',
+    accent: 'bg-warning/10',
+    darkAccent: 'dark:bg-warning/15',
+    icon: 'text-warning dark:text-warning/90',
+  },
+  3: {
+    bg: 'bg-primary-50',
+    darkBg: 'dark:bg-dark-card-schedule',
+    border: 'border-primary-500/20',
+    darkBorder: 'dark:border-dark-surface-6',
+    accent: 'bg-primary-100',
+    darkAccent: 'dark:bg-primary-900/20',
+    icon: 'text-primary-500 dark:text-primary-400',
+  },
+  4: {
+    bg: 'bg-surface-100',
+    darkBg: 'dark:bg-dark-card-eliminate',
+    border: 'border-surface-300/50',
+    darkBorder: 'dark:border-dark-surface-6',
+    accent: 'bg-surface-200',
+    darkAccent: 'dark:bg-dark-surface-6',
+    icon: 'text-surface-500 dark:text-dark-text-secondary',
+  },
+  5: {
+    bg: 'bg-primary-900/5',
+    darkBg: 'dark:bg-dark-card-backlog',
+    border: 'border-primary-900/10',
+    darkBorder: 'dark:border-dark-surface-6',
+    accent: 'bg-primary-900/10',
+    darkAccent: 'dark:bg-primary-800/15',
+    icon: 'text-primary-800 dark:text-primary-300',
+  },
 };
+
+// Material Design inspired Ripple effect
+function Ripple({ active }) {
+  const [ripples, setRipples] = useState([]);
+  const timeoutRef = useRef(null);
+  
+  useEffect(() => {
+    if (ripples.length > 0) {
+      // Clear any existing timeout to prevent multiple clean-ups
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // Set new timeout
+      timeoutRef.current = setTimeout(() => {
+        setRipples([]);
+        timeoutRef.current = null;
+      }, 500); // Reduced timeout to 500ms
+      
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      };
+    }
+  }, [ripples]);
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const addRipple = (e) => {
+    // Prevent double-triggers
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    
+    const button = e.currentTarget;
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top - size / 2;
+    
+    const newRipple = {
+      x,
+      y,
+      size,
+      id: Date.now()
+    };
+    
+    // Reset ripples before adding a new one to prevent double animations
+    setRipples([newRipple]);
+  };
+
+  return {
+    rippleJSX: (
+      <>
+        {ripples.map(ripple => (
+          <span 
+            key={ripple.id}
+            className="absolute rounded-full animate-ripple bg-white/30 dark:bg-white/20 pointer-events-none"
+            style={{
+              left: ripple.x,
+              top: ripple.y,
+              width: ripple.size,
+              height: ripple.size
+            }}
+          />
+        ))}
+      </>
+    ),
+    onMouseDown: active ? addRipple : undefined
+  };
+}
 
 export default function TaskCard({ 
   task = {},
@@ -32,60 +154,80 @@ export default function TaskCard({
   onComplete = () => {},
   onMoveToQuadrant = () => {} 
 }) {
-  const [showActions, setShowActions] = useState(false);
-  const [showContextMenu, setShowContextMenu] = useState(false);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
-  const contextMenuRef = useRef(null);
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
-    data: task
+    data: { task }
   });
-
+  
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: isDragging 
-      ? undefined  // No transition while dragging
-      : transition, // Use dnd-kit's transition
-    opacity: isDragging ? 0 : 1, // Hide original while dragging
-    zIndex: isDragging ? 100 : 1,
+    transition,
+    opacity: isDragging ? 0.5 : 1,
   };
-
-  // Check if task is overdue
-  const isOverdue = task.dueDate && task.status !== 'completed' && isPast(parseISO(task.dueDate));
   
-  // Close context menu when clicking elsewhere
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const menuRef = useRef(null);
+  const { title, description, priority, status, dueDate, tags = [] } = task;
+  const isCompleted = status === 'completed';
+  
+  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
-        setShowContextMenu(false);
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
       }
     }
     
-    if (showContextMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+    function handleScroll() {
+      setMenuOpen(false);
     }
-  }, [showContextMenu]);
+    
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('scroll', handleScroll, true); // Use capture phase to catch all scroll events
+      window.addEventListener('resize', handleScroll);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener('resize', handleScroll);
+      };
+    }
+  }, [menuOpen]);
   
   const handleContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation(); // Stop event propagation
-    setContextMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowContextMenu(true);
+    
+    // Calculate position based on available space
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const menuHeight = 280; // Approximate height of the menu
+    const menuWidth = 180; // Approximate width of the menu
+    
+    // Default position at cursor
+    let x = e.clientX;
+    let y = e.clientY;
+    
+    // Check if menu would go off the bottom of the screen
+    if (y + menuHeight > viewportHeight) {
+      y = Math.max(y - menuHeight, 10); // Position above cursor, but not off the top
+    }
+    
+    // Check if menu would go off the right of the screen
+    if (x + menuWidth > viewportWidth) {
+      x = Math.max(x - menuWidth, 10); // Position to the left of cursor, but not off the left
+    }
+    
+    setMenuPosition({ x, y });
+    setMenuOpen(true);
   };
   
   const handleMoveToQuadrant = (e, quadrant) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowContextMenu(false);
+    setMenuOpen(false);
     if (onMoveToQuadrant) {
       onMoveToQuadrant(task.id, quadrant);
     }
@@ -97,156 +239,182 @@ export default function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={clsx(
-        'relative group cursor-pointer rounded-lg border p-3 shadow-sm transition-all',
-        priorityColors[task.priority] || 'bg-gray-100 border-gray-200',
-        task.status === 'completed' && 'opacity-60',
-        isOverdue && 'ring-2 ring-red-500 ring-opacity-70',
-        className
-      )}
+      className={`
+        compact-card relative cursor-pointer
+        ${priorityColors[priority]?.bg || 'bg-surface-100'} 
+        ${priorityColors[priority]?.darkBg || 'dark:bg-dark-card-eliminate'}
+        ${priorityColors[priority]?.border || 'border-surface-300/50'} 
+        ${priorityColors[priority]?.darkBorder || 'dark:border-dark-surface-6/50'}
+        hover:shadow-subtle dark:hover:shadow-none
+        transition-all duration-200 ease-in-out
+        hover:bg-opacity-90 dark:hover:bg-opacity-90
+        hover:border-gray-300 dark:hover:border-gray-600
+        ${isCompleted ? 'opacity-60' : ''}
+        ${className}
+      `}
       onClick={() => onEdit(task)}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-      onTouchStart={() => setShowActions(true)}
       onContextMenu={handleContextMenu}
     >
-      <div className="flex flex-col">
-        <div className="flex justify-between">
-          <h3 className={clsx(
-            "font-medium text-gray-900 break-words",
-            task.status === 'completed' && 'line-through text-gray-500'
-          )}>
-            {task.title}
-          </h3>
-        </div>
-
-        <div className="mt-1">
-          {task.tags && task.tags.length > 0 && (
+      <div className="flex items-start gap-1">
+        {/* Priority indicator */}
+        <div className={`w-1 self-stretch rounded-sm ${priorityColors[priority]?.accent || 'bg-surface-200'} ${priorityColors[priority]?.darkAccent || 'dark:bg-dark-surface-6'}`}></div>
+        
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <div className="flex items-start justify-between gap-1">
+            <h3 className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}>
+              {title}
+            </h3>
+            
+            {/* Due date */}
+            {dueDate && (
+              <div className="flex items-center text-xs whitespace-nowrap select-none">
+                <ClockIcon className="w-3 h-3 mr-0.5 flex-shrink-0" />
+                <span className={`${isPast(parseISO(dueDate)) && !isCompleted ? 'text-error' : 'text-surface-500 dark:text-dark-text-secondary'}`}>
+                  {format(parseISO(dueDate), 'h:mm a')}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* Tags */}
+          {tags && tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {task.tags.map(tag => (
+              {tags.slice(0, 3).map(tag => (
                 <span 
-                  key={tag}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  key={tag} 
+                  className="px-1 py-0.5 text-xs rounded-sm bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary select-none"
                 >
                   #{tag}
                 </span>
               ))}
-            </div>
-          )}
-          
-          {task.dueDate && (
-            <time className={clsx(
-              "text-xs block mt-1",
-              isOverdue ? "text-red-600 font-medium" : "text-gray-600"
-            )}>
-              {isOverdue ? '⚠ Overdue: ' : ''}
-              {format(new Date(task.dueDate), 'MMM d, h:mm a')}
-            </time>
-          )}
-          
-          {task.details && (
-            <div className="text-xs text-gray-500 mt-1">
-              <span className="mr-1">📝</span>Has details
+              {tags.length > 3 && (
+                <span className="px-1 py-0.5 text-xs rounded-sm bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary select-none">
+                  +{tags.length - 3}
+                </span>
+              )}
             </div>
           )}
         </div>
-      </div>
-
-      {showActions && (
-        <div className="absolute -right-3 -top-3 flex gap-2 z-10">
-          {task.status === 'completed' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(task);
-              }}
-              className="p-1.5 rounded-full bg-blue-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-blue-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
-              title="Restore task"
-              style={{ position: 'relative', zIndex: 20 }}
-            >
-              <ArrowUturnLeftIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(task);
-              }}
-              className="p-1.5 rounded-full bg-green-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-green-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
-              title="Complete task"
-              style={{ position: 'relative', zIndex: 20 }}
-            >
-              <CheckCircleIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
-            </button>
-          )}
-          <button
+        
+        {/* Action buttons */}
+        <div className="flex items-center">
+          <button 
             onClick={(e) => {
               e.stopPropagation();
-              onDelete();
+              onComplete(task);
             }}
-            className="p-1.5 rounded-full bg-red-500 text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm md:w-7 md:h-7 w-9 h-9"
-            title="Delete task"
-            style={{ position: 'relative', zIndex: 20 }}
+            className="p-1 text-surface-500 hover:text-surface-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary"
           >
-            <TrashIcon className="w-3.5 h-3.5 md:w-3.5 md:h-3.5 w-5 h-5 m-auto" />
+            {isCompleted ? (
+              <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
+            ) : (
+              <CheckCircleIcon className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+            className="p-1 text-surface-500 hover:text-error dark:text-dark-text-secondary dark:hover:text-error"
+          >
+            <TrashIcon className="w-3.5 h-3.5" />
           </button>
         </div>
-      )}
-
-      {showContextMenu && createPortal(
+      </div>
+      
+      {/* Context menu */}
+      {menuOpen && createPortal(
         <div 
-          ref={contextMenuRef}
-          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden" 
+          ref={menuRef}
+          className="fixed z-50 bg-white dark:bg-dark-surface-2 rounded-md shadow-medium border border-surface-200 dark:border-dark-surface-6 overflow-hidden min-w-[160px] select-none"
           style={{ 
-            left: `${contextMenuPosition.x}px`, 
-            top: `${contextMenuPosition.y}px`,
-            minWidth: '180px',
-            zIndex: 9999
+            left: `${menuPosition.x}px`, 
+            top: `${menuPosition.y}px` 
           }}
         >
-          <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-sm font-medium text-gray-700">Move to</h3>
-          </div>
-          
-          <div className="p-1">
+          <div className="py-1">
             <button 
-              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-red-50 rounded-md"
-              onClick={(e) => handleMoveToQuadrant(e, 'urgent-important')}
+              onClick={() => { onEdit(task); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
             >
-              <ExclamationCircleIcon className="w-4 h-4 mr-2 text-red-500" />
-              <span>Do (Urgent)</span>
+              <DocumentTextIcon className="w-3.5 h-3.5 mr-2" />
+              Edit
             </button>
             
             <button 
-              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-blue-50 rounded-md"
-              onClick={(e) => handleMoveToQuadrant(e, 'not-urgent-important')}
+              onClick={() => { onComplete(task); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
             >
-              <ArrowUpCircleIcon className="w-4 h-4 mr-2 text-blue-500" />
-              <span>Schedule</span>
+              {isCompleted ? (
+                <>
+                  <ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-2" />
+                  Mark as Todo
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon className="w-3.5 h-3.5 mr-2" />
+                  Mark as Complete
+                </>
+              )}
+            </button>
+            
+            <div className="h-px bg-surface-200 dark:bg-dark-surface-6 my-1"></div>
+            
+            {/* Move to quadrant submenu */}
+            <div className="px-3 py-1 text-xs text-surface-500 dark:text-dark-text-secondary">
+              Move to
+            </div>
+            
+            <button 
+              onClick={(e) => { handleMoveToQuadrant(e, 'urgent-important'); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
+            >
+              <ExclamationCircleIcon className="w-3.5 h-3.5 mr-2 text-error" />
+              Do
             </button>
             
             <button 
-              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-yellow-50 rounded-md"
-              onClick={(e) => handleMoveToQuadrant(e, 'urgent-not-important')}
+              onClick={(e) => { handleMoveToQuadrant(e, 'not-urgent-important'); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
             >
-              <ArrowDownCircleIcon className="w-4 h-4 mr-2 text-yellow-500" />
-              <span>Delegate</span>
+              <ClockIcon className="w-3.5 h-3.5 mr-2 text-primary-500" />
+              Schedule
             </button>
             
             <button 
-              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 rounded-md"
-              onClick={(e) => handleMoveToQuadrant(e, 'not-urgent-not-important')}
+              onClick={(e) => { handleMoveToQuadrant(e, 'urgent-not-important'); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
             >
-              <ChevronDownIcon className="w-4 h-4 mr-2 text-gray-500" />
-              <span>Eliminate</span>
+              <ArrowUpCircleIcon className="w-3.5 h-3.5 mr-2 text-warning" />
+              Delegate
             </button>
             
             <button 
-              className="flex w-full items-center px-3 py-2 text-sm text-left text-gray-700 hover:bg-purple-50 rounded-md"
-              onClick={(e) => handleMoveToQuadrant(e, 'backlog')}
+              onClick={(e) => { handleMoveToQuadrant(e, 'not-urgent-not-important'); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
             >
-              <QueueListIcon className="w-4 h-4 mr-2 text-purple-500" />
-              <span>Backlog</span>
+              <ArrowDownCircleIcon className="w-3.5 h-3.5 mr-2 text-surface-500" />
+              Eliminate
+            </button>
+            
+            <button 
+              onClick={(e) => { handleMoveToQuadrant(e, 'backlog'); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
+            >
+              <QueueListIcon className="w-3.5 h-3.5 mr-2 text-primary-800 dark:text-primary-300" />
+              Backlog
+            </button>
+            
+            <div className="h-px bg-surface-200 dark:bg-dark-surface-6 my-1"></div>
+            
+            <button 
+              onClick={() => { onDelete(task.id); setMenuOpen(false); }}
+              className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center text-error"
+            >
+              <TrashIcon className="w-3.5 h-3.5 mr-2" />
+              Delete
             </button>
           </div>
         </div>,

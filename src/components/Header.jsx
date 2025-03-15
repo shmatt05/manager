@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { config } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import clsx from 'clsx';
 
-function Header({ children, tabs, activeTab, onTabChange }) {
+function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const { user, signOut } = useAuth();
@@ -26,122 +27,80 @@ function Header({ children, tabs, activeTab, onTabChange }) {
   };
 
   return (
-    <div>
-      <header style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '0.25rem 1rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <h1 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Task Matrix</h1>
-        
-        {user && (
-          <div ref={menuRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0.375rem',
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: '#f0f0f0',
-                width: '1.75rem',
-                height: '1.75rem',
-                justifyContent: 'center',
-                fontSize: '0.875rem'
-              }}
-            >
-              {user.email ? user.email[0].toUpperCase() : 'U'}
-            </button>
-
-            {menuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 0.25rem)',
-                right: 0,
-                backgroundColor: 'white',
-                borderRadius: '0.375rem',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                border: '1px solid #e5e7eb',
-                minWidth: '200px',
-                zIndex: 50
-              }}>
-                <div style={{
-                  padding: '0.5rem 0.75rem',
-                  borderBottom: '1px solid #e5e7eb',
-                  color: '#666',
-                  fontSize: '0.875rem'
-                }}>
-                  {user.email}
-                </div>
+    <div className="dark:bg-dark-background border-b border-gray-200 dark:border-gray-800">
+      <header className="bg-white dark:bg-[#1A1A1F] px-2 py-1">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="font-['VT323'] text-[1.5rem] mr-1 text-blue-600 dark:text-blue-400 select-none">
+              TØ
+            </span>
+            <h1 className="text-base font-semibold dark:text-dark-text-primary select-none">Task Zero</h1>
+          </div>
+          
+          <div className="flex-1 flex justify-center max-w-2xl mx-4">
+            {children} {/* TaskCreate component */}
+          </div>
+          
+          <div className="flex items-center">
+            {/* Send All to Backlog button - smaller to match user icon */}
+            {activeTab === 'matrix' && onSendAllToBacklog && (
+              <button
+                onClick={onSendAllToBacklog}
+                className="mr-2 h-[26px] px-2 text-[11px] bg-gray-100 hover:bg-white dark:bg-dark-surface-4 dark:hover:bg-dark-surface-3 text-gray-700 hover:text-gray-900 dark:text-dark-text-primary dark:hover:text-dark-text-primary rounded flex items-center transition-all duration-200 hover:shadow-sm group select-none"
+                title="Move all tasks from all quadrants to the backlog"
+              >
+                <svg className="w-3 h-3 mr-1 text-gray-600 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                Send All to Backlog
+              </button>
+            )}
+            
+            {user && (
+              <div ref={menuRef} className="relative flex">
                 <button
-                  onClick={handleSignOut}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.5rem 0.75rem',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    cursor: 'pointer',
-                    color: '#dc2626',
-                    fontSize: '0.875rem'
-                  }}
-                  onMouseEnter={e => e.target.style.backgroundColor = '#f9fafb'}
-                  onMouseLeave={e => e.target.style.backgroundColor = 'transparent'}
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center justify-center p-1 rounded-full border-none cursor-pointer bg-gray-100 dark:bg-gray-700 w-[26px] h-[26px] text-xs dark:text-dark-text-primary select-none"
                 >
-                  Sign out
+                  {user.email ? user.email[0].toUpperCase() : 'U'}
                 </button>
+
+                {menuOpen && (
+                  <div className="absolute top-full mt-1 right-0 bg-white dark:bg-dark-surface-2 rounded-md shadow-medium border border-gray-200 dark:border-gray-700 min-w-[180px] z-50 select-none">
+                    <div className="p-1.5 border-b border-gray-200 dark:border-gray-700 text-gray-600 dark:text-dark-text-secondary text-xs select-none">
+                      {user.email}
+                    </div>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left p-1.5 border-none bg-transparent cursor-pointer text-red-600 dark:text-red-400 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 select-none"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </header>
 
-      <div style={{
-        padding: '5px 1rem',
-        backgroundColor: 'white',
-      }}>
-        {children} {/* TaskCreate component centered */}
-      </div>
-
-      <nav style={{ 
-        display: 'flex', 
-        gap: '1rem',
-        padding: '5px 1rem 0',
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-      }}>
-        {tabs.map(tab => {
-          // Fix the style conflict by using separate style objects
-          const baseStyle = {
-            padding: '0.25rem 0',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            color: activeTab === tab.id ? '#2563eb' : '#6b7280',
-            background: 'none',
-            borderTop: 'none',
-            borderRight: 'none',
-            borderLeft: 'none',
-            borderBottomWidth: '2px',
-            borderBottomStyle: 'solid',
-            borderBottomColor: activeTab === tab.id ? '#2563eb' : 'transparent',
-            cursor: 'pointer'
-          };
-          
-          return (
+      <nav className="bg-white dark:bg-[#1A1A1F] px-2 pt-0.5 pb-0">
+        <div className="max-w-6xl mx-auto w-full flex gap-3">
+          {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              style={baseStyle}
+              className={clsx(
+                "py-1 text-xs font-medium border-b-2 cursor-pointer transition-colors bg-transparent select-none",
+                activeTab === tab.id 
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400" 
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              )}
             >
               {tab.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </nav>
     </div>
   );
