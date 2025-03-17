@@ -386,16 +386,19 @@ const TourDemoBoard = () => {
   const { active } = useTour();
   const [originalState, setOriginalState] = useState(null);
   
+  // Effect to handle tour activation and deactivation
   useEffect(() => {
-    // Only run during tour
     if (!active) {
       // If we have original state and tour is ending, dispatch event to restore it
       if (originalState) {
+        console.log('Tour ended, restoring original state');
         window.dispatchEvent(new CustomEvent('tour:end', { detail: originalState }));
         setOriginalState(null);
       }
       return;
     }
+    
+    console.log('Tour started, setting up demo board');
     
     // Save current state before starting tour
     const currentState = {
@@ -429,6 +432,7 @@ const TourDemoBoard = () => {
     // Cleanup function
     return () => {
       if (originalState) {
+        console.log('Component unmounting, restoring original state');
         window.dispatchEvent(new CustomEvent('tour:end', { detail: originalState }));
         setOriginalState(null);
       }

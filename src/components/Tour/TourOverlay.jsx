@@ -14,6 +14,9 @@ const TourOverlay = () => {
   });
   const overlayRef = useRef(null);
 
+  // Log when the component renders
+  console.log('TourOverlay rendering, active:', active, 'currentStep:', currentStep ? currentStep.id : null);
+
   // Update window size on resize
   useEffect(() => {
     const handleResize = () => {
@@ -33,6 +36,8 @@ const TourOverlay = () => {
       setTargetRect(null);
       return;
     }
+
+    console.log('Finding target element for step:', currentStep.id);
 
     // Skip if spotlight is disabled for this step
     if (currentStep.disableSpotlight) {
@@ -105,33 +110,82 @@ const TourOverlay = () => {
     return `circle(${radius}px at ${centerX}px ${centerY}px)`;
   };
 
+  // Determine the highlight glow color based on the current step content
+  const getHighlightColor = () => {
+    if (!currentStep || !currentStep.content) return 'rgba(58, 170, 160, 0.15)'; // Default darker teal
+    
+    const content = currentStep.content.toLowerCase();
+    if (content.includes('urgent') && content.includes('important')) {
+      return 'rgba(255, 107, 107, 0.18)'; // Slightly stronger coral for Do (Urgent/Important)
+    } else if (content.includes('delegate')) {
+      return 'rgba(58, 170, 160, 0.18)'; // Darker teal for Delegate with increased opacity
+    } else if (content.includes('backlog')) {
+      return 'rgba(149, 165, 166, 0.18)'; // Slightly stronger warm gray for Backlog
+    }
+    
+    return 'rgba(58, 170, 160, 0.15)'; // Default darker teal
+  };
+
+  console.log('Rendering TourOverlay with targetRect:', targetRect);
+
   return (
-    <div 
-      ref={overlayRef}
-      className="fixed inset-0 z-50 pointer-events-none transition-opacity duration-300"
-      style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        WebkitClipPath: getClipPath(),
-        clipPath: getClipPath(),
-        opacity: targetRect ? 0 : 1, // Invert the mask (show everything except the spotlight)
-      }}
-    >
-      {/* Inverted mask to create spotlight effect */}
+    <>
+      {/* Blocking overlay to prevent interaction with background elements */}
       <div 
-        className="absolute inset-0 bg-black opacity-75"
+        className="fixed inset-0 z-40 cursor-not-allowed"
         style={{
-          WebkitClipPath: `polygon(
-            0% 0%, 100% 0%, 100% 100%, 0% 100%,
-            0% 0%
-          )`,
-          clipPath: `polygon(
-            0% 0%, 100% 0%, 100% 100%, 0% 100%,
-            0% 0%
-          )`,
-          pointerEvents: 'none'
+          backgroundColor: 'transparent',
+          pointerEvents: 'all'
         }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       />
-    </div>
+      
+      {/* Main overlay */}
+      <div 
+        ref={overlayRef}
+        className="fixed inset-0 z-50 pointer-events-none transition-opacity duration-300"
+        style={{
+          backgroundColor: 'rgba(52, 73, 94, 0.75)', // Slightly darker navy with more opacity
+          WebkitClipPath: getClipPath(),
+          clipPath: getClipPath(),
+          opacity: targetRect ? 0 : 1, // Invert the mask (show everything except the spotlight)
+        }}
+      >
+        {/* Inverted mask to create spotlight effect */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundColor: 'rgba(44, 62, 80, 0.8)', // Darker navy for better contrast
+            WebkitClipPath: `polygon(
+              0% 0%, 100% 0%, 100% 100%, 0% 100%,
+              0% 0%
+            )`,
+            clipPath: `polygon(
+              0% 0%, 100% 0%, 100% 100%, 0% 100%,
+              0% 0%
+            )`,
+            pointerEvents: 'none'
+          }}
+        />
+      </div>
+      
+      {/* Highlight glow around the target */}
+      {targetRect && (
+        <div 
+          className="fixed z-49 pointer-events-none transition-opacity duration-300"
+          style={{
+            top: targetRect.top - 5,
+            left: targetRect.left - 5,
+            width: targetRect.width + 10,
+            height: targetRect.height + 10,
+            boxShadow: `0 0 0 5px ${getHighlightColor()}`,
+            borderRadius: '4px',
+          }}
+        />
+      )}
+    </>
   );
 };
 

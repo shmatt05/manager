@@ -8,9 +8,14 @@ import { useTour } from '../../contexts/TourContext';
 const TourButton = ({ className }) => {
   const { startTour, active } = useTour();
 
+  const handleStartTour = () => {
+    console.log('Starting tour...');
+    startTour();
+  };
+
   return (
     <button
-      onClick={startTour}
+      onClick={handleStartTour}
       disabled={active}
       className={`${className || ''} ${
         active ? 'opacity-50 cursor-not-allowed' : ''

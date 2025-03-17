@@ -1,219 +1,222 @@
-import React, { createContext, useReducer, useContext, useCallback } from 'react';
-
-// Initial state for the tour
-const initialState = {
-  active: false,
-  currentStepIndex: 0,
-  totalSteps: 0,
-  stepHistory: [],
-  autoPlay: false,
-  completed: false
-};
-
-// Action types for the reducer
-const ACTIONS = {
-  START_TOUR: 'START_TOUR',
-  END_TOUR: 'END_TOUR',
-  NEXT_STEP: 'NEXT_STEP',
-  PREV_STEP: 'PREV_STEP',
-  GO_TO_STEP: 'GO_TO_STEP',
-  SET_AUTO_PLAY: 'SET_AUTO_PLAY',
-  COMPLETE_TOUR: 'COMPLETE_TOUR',
-  RESET_TOUR: 'RESET_TOUR',
-  EXECUTE_ACTION: 'EXECUTE_ACTION'
-};
-
-// Reducer function to handle state updates
-function tourReducer(state, action) {
-  switch (action.type) {
-    case ACTIONS.START_TOUR:
-      return {
-        ...state,
-        active: true,
-        currentStepIndex: 0,
-        totalSteps: action.payload.totalSteps,
-        stepHistory: [0],
-        completed: false
-      };
-    
-    case ACTIONS.END_TOUR:
-      return {
-        ...state,
-        active: false,
-        autoPlay: false
-      };
-    
-    case ACTIONS.NEXT_STEP:
-      const nextIndex = state.currentStepIndex + 1;
-      // Don't go beyond the last step
-      if (nextIndex >= state.totalSteps) {
-        return {
-          ...state,
-          completed: true,
-          autoPlay: false
-        };
-      }
-      
-      return {
-        ...state,
-        currentStepIndex: nextIndex,
-        stepHistory: [...state.stepHistory, nextIndex]
-      };
-    
-    case ACTIONS.PREV_STEP:
-      const prevIndex = state.currentStepIndex - 1;
-      // Don't go before the first step
-      if (prevIndex < 0) return state;
-      
-      return {
-        ...state,
-        currentStepIndex: prevIndex,
-        stepHistory: [...state.stepHistory, prevIndex]
-      };
-    
-    case ACTIONS.GO_TO_STEP:
-      const stepIndex = action.payload.stepIndex;
-      // Ensure the step index is valid
-      if (stepIndex < 0 || stepIndex >= state.totalSteps) return state;
-      
-      return {
-        ...state,
-        currentStepIndex: stepIndex,
-        stepHistory: [...state.stepHistory, stepIndex]
-      };
-    
-    case ACTIONS.SET_AUTO_PLAY:
-      return {
-        ...state,
-        autoPlay: action.payload.autoPlay
-      };
-    
-    case ACTIONS.COMPLETE_TOUR:
-      return {
-        ...state,
-        active: false,
-        completed: true,
-        autoPlay: false
-      };
-    
-    case ACTIONS.RESET_TOUR:
-      return initialState;
-    
-    case ACTIONS.EXECUTE_ACTION:
-      // This action doesn't change state, it just executes a function
-      if (action.payload && typeof action.payload.action === 'function') {
-        action.payload.action();
-      }
-      return state;
-    
-    default:
-      return state;
-  }
-}
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import tourSteps from '../data/tourSteps';
 
 // Create the context
 const TourContext = createContext();
 
 // Custom hook to use the tour context
-export function useTour() {
-  const context = useContext(TourContext);
-  if (!context) {
-    throw new Error('useTour must be used within a TourProvider');
-  }
-  return context;
-}
+export const useTour = () => useContext(TourContext);
 
-// Tour Provider component
-export function TourProvider({ children, steps }) {
-  const [state, dispatch] = useReducer(tourReducer, initialState);
-  
-  // Calculate total steps from the provided steps array
-  const totalSteps = steps ? steps.length : 0;
-  
-  // Get the current step data
-  const currentStep = steps && state.currentStepIndex < totalSteps 
-    ? steps[state.currentStepIndex] 
-    : null;
-  
-  // Action creators
-  const startTour = useCallback(() => {
-    dispatch({ 
-      type: ACTIONS.START_TOUR, 
-      payload: { totalSteps } 
-    });
-  }, [totalSteps]);
-  
-  const endTour = useCallback(() => {
-    dispatch({ type: ACTIONS.END_TOUR });
-  }, []);
-  
-  const nextStep = useCallback(() => {
-    dispatch({ type: ACTIONS.NEXT_STEP });
-  }, []);
-  
-  const prevStep = useCallback(() => {
-    dispatch({ type: ACTIONS.PREV_STEP });
-  }, []);
-  
-  const goToStep = useCallback((stepIndex) => {
-    dispatch({ 
-      type: ACTIONS.GO_TO_STEP, 
-      payload: { stepIndex } 
-    });
-  }, []);
-  
-  const setAutoPlay = useCallback((autoPlay) => {
-    dispatch({ 
-      type: ACTIONS.SET_AUTO_PLAY, 
-      payload: { autoPlay } 
-    });
-  }, []);
-  
-  const completeTour = useCallback(() => {
-    dispatch({ type: ACTIONS.COMPLETE_TOUR });
-  }, []);
-  
-  const resetTour = useCallback(() => {
-    dispatch({ type: ACTIONS.RESET_TOUR });
-  }, []);
-  
-  const executeAction = useCallback((action) => {
-    if (typeof action === 'function') {
-      dispatch({ 
-        type: ACTIONS.EXECUTE_ACTION, 
-        payload: { action } 
-      });
-    }
-  }, []);
-  
-  // Combine state and actions to provide through context
-  const value = {
-    // State
-    active: state.active,
-    currentStepIndex: state.currentStepIndex,
-    totalSteps,
-    currentStep,
-    stepHistory: state.stepHistory,
-    autoPlay: state.autoPlay,
-    completed: state.completed,
+// Tour provider component
+export const TourProvider = ({ children }) => {
+  const [active, setActive] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [steps] = useState(tourSteps);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [stepHistory, setStepHistory] = useState([]);
+
+  // Get the current step
+  const currentStep = steps[currentStepIndex];
+
+  // Log when the component renders
+  console.log('TourContext rendering, active:', active, 'currentStep:', currentStep ? currentStep.id : null);
+
+  // Start the tour
+  const startTour = (startIndex = 0) => {
+    console.log('Starting tour at index:', startIndex);
+    setCurrentStepIndex(startIndex);
+    setActive(true);
+    setStepHistory([startIndex]);
+    setCompleted(false);
     
-    // Actions
+    // Add keyboard event listener to prevent background interactions
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Disable scrolling on the body when tour is active
+    document.body.style.overflow = 'hidden';
+  };
+
+  // End the tour
+  const endTour = () => {
+    console.log('Ending tour');
+    setActive(false);
+    setAutoPlay(false);
+    
+    // Clean up any actions from the current step
+    if (currentStep && currentStep.onHide) {
+      executeAction(currentStep.onHide);
+    }
+    
+    // Remove keyboard event listener
+    document.removeEventListener('keydown', handleKeyDown);
+    
+    // Re-enable scrolling
+    document.body.style.overflow = '';
+  };
+
+  // Complete the tour
+  const completeTour = () => {
+    console.log('Completing tour');
+    setActive(false);
+    setCompleted(true);
+    setAutoPlay(false);
+    
+    // Clean up any actions from the current step
+    if (currentStep && currentStep.onHide) {
+      executeAction(currentStep.onHide);
+    }
+    
+    // Remove keyboard event listener
+    document.removeEventListener('keydown', handleKeyDown);
+    
+    // Re-enable scrolling
+    document.body.style.overflow = '';
+  };
+
+  // Go to the next step
+  const nextStep = () => {
+    if (currentStepIndex < steps.length - 1) {
+      // Clean up any actions from the current step
+      if (currentStep && currentStep.onHide) {
+        executeAction(currentStep.onHide);
+      }
+      
+      const nextIndex = currentStepIndex + 1;
+      console.log('Going to next step:', nextIndex);
+      setCurrentStepIndex(nextIndex);
+      setStepHistory([...stepHistory, nextIndex]);
+    } else {
+      completeTour();
+    }
+  };
+
+  // Go to the previous step
+  const prevStep = () => {
+    if (currentStepIndex > 0) {
+      // Clean up any actions from the current step
+      if (currentStep && currentStep.onHide) {
+        executeAction(currentStep.onHide);
+      }
+      
+      const prevIndex = currentStepIndex - 1;
+      console.log('Going to previous step:', prevIndex);
+      setCurrentStepIndex(prevIndex);
+      setStepHistory([...stepHistory, prevIndex]);
+    }
+  };
+
+  // Go to a specific step
+  const goToStep = (index) => {
+    if (index >= 0 && index < steps.length) {
+      // Clean up any actions from the current step
+      if (currentStep && currentStep.onHide) {
+        executeAction(currentStep.onHide);
+      }
+      
+      console.log('Going to specific step:', index);
+      setCurrentStepIndex(index);
+      setStepHistory([...stepHistory, index]);
+    }
+  };
+
+  // Set auto play mode
+  const setAutoPlayMode = (isAutoPlay) => {
+    console.log('Setting auto play mode:', isAutoPlay);
+    setAutoPlay(isAutoPlay);
+  };
+
+  // Reset the tour
+  const resetTour = () => {
+    console.log('Resetting tour');
+    setActive(false);
+    setCurrentStepIndex(0);
+    setStepHistory([]);
+    setAutoPlay(false);
+    setCompleted(false);
+  };
+
+  // Execute an action function
+  const executeAction = (actionFn) => {
+    if (typeof actionFn === 'function') {
+      try {
+        actionFn();
+      } catch (error) {
+        console.error('Error executing tour action:', error);
+      }
+    }
+  };
+
+  // Handle keyboard events
+  const handleKeyDown = (e) => {
+    // Prevent default behavior for arrow keys, escape, enter, and space
+    if (
+      e.key === 'ArrowRight' || 
+      e.key === 'ArrowLeft' || 
+      e.key === 'Escape' || 
+      e.key === 'Enter' || 
+      e.key === ' '
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Handle navigation with keyboard
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'Enter':
+        case ' ':
+          nextStep();
+          break;
+        case 'ArrowLeft':
+          prevStep();
+          break;
+        case 'Escape':
+          endTour();
+          break;
+        default:
+          break;
+      }
+    }
+  };
+
+  // Clean up when component unmounts
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  // Log when active state changes
+  useEffect(() => {
+    console.log('Tour active state changed:', active);
+  }, [active]);
+
+  // Value to be provided by the context
+  const value = {
+    active,
+    currentStep,
+    currentStepIndex,
+    totalSteps: steps.length,
+    stepHistory,
+    autoPlay,
+    completed,
     startTour,
     endTour,
     nextStep,
     prevStep,
     goToStep,
-    setAutoPlay,
+    setAutoPlay: setAutoPlayMode,
     completeTour,
     resetTour,
     executeAction
   };
-  
+
   return (
     <TourContext.Provider value={value}>
       {children}
     </TourContext.Provider>
   );
-}
+};
 
 export default TourContext; 

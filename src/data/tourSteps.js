@@ -73,26 +73,19 @@ const simulateAddingTask = () => {
 
 // Helper function to show the task card demo
 const showTaskCardDemo = () => {
-  // Create a container for the demo if it doesn't exist
-  let demoContainer = document.getElementById('tour-task-card-demo');
-  if (!demoContainer) {
-    // Import the demo component dynamically
-    import('../components/Tour/TourTaskCardDemo').then(module => {
-      const TourTaskCardDemo = module.default;
-      // Create the demo instance
-      const demo = new TourTaskCardDemo();
-      // The component will handle its own rendering via useEffect
-    }).catch(error => {
-      console.error('Error loading task card demo:', error);
-    });
+  // Find the task card element
+  const taskCard = document.querySelector('[data-tour-id="task-card"]');
+  if (taskCard) {
+    taskCard.classList.add('tour-highlight');
   }
 };
 
-// Helper function to clean up the task card demo
+// Helper function to clean up task card demo
 const cleanupTaskCardDemo = () => {
-  const demoContainer = document.getElementById('tour-task-card-demo');
-  if (demoContainer) {
-    demoContainer.remove();
+  // Find the task card element
+  const taskCard = document.querySelector('[data-tour-id="task-card"]');
+  if (taskCard) {
+    taskCard.classList.remove('tour-highlight');
   }
 };
 
@@ -121,21 +114,133 @@ const cleanupTaskMoveDemo = () => {
   }
 };
 
+// Helper function to show the matrix quadrants
+const showMatrixQuadrants = () => {
+  // Find all quadrant elements
+  const quadrants = document.querySelectorAll('[data-tour-id^="quadrant-"]');
+  quadrants.forEach(quadrant => {
+    quadrant.classList.add('tour-highlight');
+  });
+};
+
+// Helper function to clean up matrix quadrants
+const cleanupMatrixQuadrants = () => {
+  // Find all quadrant elements
+  const quadrants = document.querySelectorAll('[data-tour-id^="quadrant-"]');
+  quadrants.forEach(quadrant => {
+    quadrant.classList.remove('tour-highlight');
+  });
+};
+
+// Helper function to show the backlog
+const showBacklog = () => {
+  // Find the backlog element
+  const backlog = document.querySelector('[data-tour-id="backlog"]');
+  if (backlog) {
+    backlog.classList.add('tour-highlight');
+  }
+};
+
+// Helper function to clean up backlog
+const cleanupBacklog = () => {
+  // Find the backlog element
+  const backlog = document.querySelector('[data-tour-id="backlog"]');
+  if (backlog) {
+    backlog.classList.remove('tour-highlight');
+  }
+};
+
+// Helper function to show the completed tasks
+const showCompletedTasks = () => {
+  // Find the completed tasks element
+  const completedTasks = document.querySelector('[data-tour-id="completed-tasks"]');
+  if (completedTasks) {
+    completedTasks.classList.add('tour-highlight');
+  }
+};
+
+// Helper function to clean up completed tasks
+const cleanupCompletedTasks = () => {
+  // Find the completed tasks element
+  const completedTasks = document.querySelector('[data-tour-id="completed-tasks"]');
+  if (completedTasks) {
+    completedTasks.classList.remove('tour-highlight');
+  }
+};
+
+// Helper function to show the history view
+const showHistoryView = () => {
+  // Find the history view element
+  const historyView = document.querySelector('[data-tour-id="history-view"]');
+  if (historyView) {
+    historyView.classList.add('tour-highlight');
+  }
+};
+
+// Helper function to clean up history view
+const cleanupHistoryView = () => {
+  // Find the history view element
+  const historyView = document.querySelector('[data-tour-id="history-view"]');
+  if (historyView) {
+    historyView.classList.remove('tour-highlight');
+  }
+};
+
+// Helper function to show the task creation form
+const showTaskCreation = () => {
+  // Find the task creation form element
+  const taskCreation = document.querySelector('[data-tour-id="task-creation"]');
+  if (taskCreation) {
+    taskCreation.classList.add('tour-highlight');
+  }
+};
+
+// Helper function to clean up task creation form
+const cleanupTaskCreation = () => {
+  // Find the task creation form element
+  const taskCreation = document.querySelector('[data-tour-id="task-creation"]');
+  if (taskCreation) {
+    taskCreation.classList.remove('tour-highlight');
+  }
+};
+
+// Define custom bullet point styles for different quadrants
+const bulletStyles = {
+  do: '<span class="inline-block w-2 h-2 bg-[#FF6B6B] rounded-full mt-1.5 mr-2 flex-shrink-0"></span>',
+  delegate: '<span class="inline-block w-2 h-2 bg-[#3AAAA0] rounded-full mt-1.5 mr-2 flex-shrink-0"></span>',
+  backlog: '<span class="inline-block w-2 h-2 bg-[#95A5A6] rounded-full mt-1.5 mr-2 flex-shrink-0"></span>',
+  default: '<span class="inline-block w-2 h-2 bg-[#7F8C8D] rounded-full mt-1.5 mr-2 flex-shrink-0"></span>'
+};
+
 const tourSteps = [
   // Introduction
   {
     id: 'welcome',
-    title: 'Welcome to Task Manager',
+    title: 'Welcome to the Eisenhower Matrix',
     content: `
-      <p class="mb-4">Welcome to your personal productivity hub. This guided tour will walk you through the key features of our task management system.</p>
+      <p>This task management system is based on the Eisenhower Matrix, a proven method for prioritizing tasks based on their urgency and importance.</p>
       
-      <p class="mb-4">Based on the <strong class="text-primary-600 dark:text-primary-400">Eisenhower Matrix</strong>, this application helps you prioritize tasks based on their urgency and importance, enabling you to focus on what truly matters.</p>
+      <p>The matrix divides your tasks into four quadrants:</p>
       
-      <p>Let's get started with a quick overview of the interface.</p>
+      <ul>
+        <li class="flex items-start">
+          ${bulletStyles.do}<span><strong>Do</strong> (Urgent & Important): Tasks that require immediate attention</span>
+        </li>
+        <li class="flex items-start">
+          ${bulletStyles.delegate}<span><strong>Schedule</strong> (Important, Not Urgent): Tasks to plan for later</span>
+        </li>
+        <li class="flex items-start">
+          ${bulletStyles.delegate}<span><strong>Delegate</strong> (Urgent, Not Important): Tasks to minimize or delegate</span>
+        </li>
+        <li class="flex items-start">
+          ${bulletStyles.backlog}<span><strong>Eliminate</strong> (Not Urgent or Important): Tasks to reconsider or eliminate</span>
+        </li>
+      </ul>
+      
+      <p>Let's take a quick tour to help you get started!</p>
     `,
     target: 'body',
-    position: 'center',
-    disableSpotlight: true,
+    position: 'center'
   },
   
   // Matrix View
@@ -147,20 +252,16 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-3 h-3 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span><strong class="text-red-600 dark:text-red-400">Do</strong> (Urgent & Important): Tasks requiring immediate attention</span>
+          ${bulletStyles.do}<span><strong>Do</strong> (Urgent & Important): Tasks requiring immediate attention</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-3 h-3 bg-blue-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span><strong class="text-blue-600 dark:text-blue-400">Schedule</strong> (Important, Not Urgent): Tasks to plan for later</span>
+          ${bulletStyles.delegate}<span><strong>Schedule</strong> (Important, Not Urgent): Tasks to plan for later</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span><strong class="text-yellow-600 dark:text-yellow-400">Delegate</strong> (Urgent, Not Important): Tasks that could be delegated</span>
+          ${bulletStyles.delegate}<span><strong>Delegate</strong> (Urgent, Not Important): Tasks that could be delegated</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-3 h-3 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span><strong class="text-green-600 dark:text-green-400">Eliminate</strong> (Not Urgent or Important): Tasks to reconsider</span>
+          ${bulletStyles.backlog}<span><strong>Eliminate</strong> (Not Urgent or Important): Tasks to reconsider</span>
         </li>
       </ul>
       
@@ -178,16 +279,13 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Type your task in the input field and click the "Add" button</span>
+          ${bulletStyles.do}<span>Type your task in the input field and click the "Add" button</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Tasks are automatically categorized based on priority and tags</span>
+          ${bulletStyles.delegate}<span>Tasks are automatically categorized based on priority and tags</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>You can create tasks directly in any quadrant</span>
+          ${bulletStyles.delegate}<span>You can create tasks directly in any quadrant</span>
         </li>
       </ul>
       
@@ -208,46 +306,38 @@ const tourSteps = [
         <div>
           <ul class="space-y-2">
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">#important</code> - Marks as important</span>
+              ${bulletStyles.do}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#important</code> - Marks as important</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">#do</code> - "Do" quadrant</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#do</code> - "Do" quadrant</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">#schedule</code> - "Schedule" quadrant</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#schedule</code> - "Schedule" quadrant</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">#delegate</code> - "Delegate" quadrant</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#delegate</code> - "Delegate" quadrant</span>
             </li>
           </ul>
         </div>
         <div>
           <ul class="space-y-2">
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">#eliminate</code> - "Eliminate" quadrant</span>
+              ${bulletStyles.backlog}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#eliminate</code> - "Eliminate" quadrant</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">@time</code> - Sets due time</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">@time</code> - Sets due time</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">@noon</code> - Sets to 12:00 PM</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">@noon</code> - Sets to 12:00 PM</span>
             </li>
             <li class="flex items-start">
-              <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-              <span><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">@midnight</code> - Sets to 12:00 AM</span>
+              ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">@midnight</code> - Sets to 12:00 AM</span>
             </li>
           </ul>
         </div>
       </div>
       
-      <div class="bg-gray-100 dark:bg-gray-700 p-2 rounded">
+      <div class="bg-gray-200 dark:bg-gray-700 p-2 rounded text-gray-800 dark:text-gray-200">
         <p class="text-sm font-medium">Example:</p>
         <p class="text-sm"><code>"Review report @2pm #important"</code> creates an important task due at 2:00 PM.</p>
       </div>
@@ -264,24 +354,19 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Title and description</span>
+          ${bulletStyles.do}<span>Title and description</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Priority indicators</span>
+          ${bulletStyles.delegate}<span>Priority indicators</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Tags for categorization</span>
+          ${bulletStyles.delegate}<span>Tags for categorization</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Due date (if set)</span>
+          ${bulletStyles.delegate}<span>Due date (if set)</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Quick action buttons</span>
+          ${bulletStyles.delegate}<span>Quick action buttons</span>
         </li>
       </ul>
       
@@ -302,16 +387,13 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Drag and drop tasks between quadrants</span>
+          ${bulletStyles.do}<span>Drag and drop tasks between quadrants</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Priority and tags update automatically</span>
+          ${bulletStyles.delegate}<span>Priority and tags update automatically</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Use the right-click menu for quick moves</span>
+          ${bulletStyles.delegate}<span>Use the right-click menu for quick moves</span>
         </li>
       </ul>
       
@@ -332,16 +414,13 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Store tasks you'll work on later</span>
+          ${bulletStyles.backlog}<span>Store tasks you'll work on later</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Drag tasks to/from the Backlog as needed</span>
+          ${bulletStyles.delegate}<span>Drag tasks to/from the Backlog as needed</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Use "Send All to Backlog" to clear your matrix at the end of the day</span>
+          ${bulletStyles.delegate}<span>Use "Send All to Backlog" to clear your matrix at the end of the day</span>
         </li>
       </ul>
       
@@ -360,20 +439,16 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>View and edit all task details</span>
+          ${bulletStyles.do}<span>View and edit all task details</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Set priority levels</span>
+          ${bulletStyles.delegate}<span>Set priority levels</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Add tags and due dates</span>
+          ${bulletStyles.delegate}<span>Add tags and due dates</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Track task history</span>
+          ${bulletStyles.backlog}<span>Track task history</span>
         </li>
       </ul>
       
@@ -553,20 +628,16 @@ const tourSteps = [
       
       <ul class="space-y-3 mb-4">
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Effectively prioritize tasks using the Eisenhower Matrix</span>
+          ${bulletStyles.do}<span>Effectively prioritize tasks using the Eisenhower Matrix</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Manage tasks throughout their lifecycle</span>
+          ${bulletStyles.delegate}<span>Manage tasks throughout their lifecycle</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Track your productivity and history</span>
+          ${bulletStyles.backlog}<span>Track your productivity and history</span>
         </li>
         <li class="flex items-start">
-          <span class="inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-          <span>Export your data for further analysis</span>
+          ${bulletStyles.delegate}<span>Export your data for further analysis</span>
         </li>
       </ul>
       
