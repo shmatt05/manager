@@ -7,20 +7,28 @@ const TourContext = createContext();
 // Custom hook to use the tour context
 export const useTour = () => useContext(TourContext);
 
-// Tour provider component
+/**
+ * TourProvider component
+ * A simplified, reliable implementation of the tour context
+ */
 export const TourProvider = ({ children }) => {
+  // Tour state
   const [active, setActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [steps] = useState(tourSteps);
-  const [autoPlay, setAutoPlay] = useState(false);
-  const [completed, setCompleted] = useState(false);
   const [stepHistory, setStepHistory] = useState([]);
+  const [completed, setCompleted] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
 
   // Get the current step
-  const currentStep = steps[currentStepIndex];
+  const currentStep = tourSteps[currentStepIndex];
+  const totalSteps = tourSteps.length;
 
-  // Log when the component renders
-  console.log('TourContext rendering, active:', active, 'currentStep:', currentStep ? currentStep.id : null);
+  // Console logging for debugging
+  useEffect(() => {
+    if (active) {
+      console.log('Tour active, current step:', currentStepIndex, currentStep?.id);
+    }
+  }, [active, currentStepIndex, currentStep]);
 
   // Start the tour
   const startTour = (startIndex = 0) => {
@@ -30,11 +38,11 @@ export const TourProvider = ({ children }) => {
     setStepHistory([startIndex]);
     setCompleted(false);
     
-    // Add keyboard event listener to prevent background interactions
-    document.addEventListener('keydown', handleKeyDown);
-    
     // Disable scrolling on the body when tour is active
     document.body.style.overflow = 'hidden';
+    
+    // Dispatch tour:start event
+    window.dispatchEvent(new CustomEvent('tour:start'));
   };
 
   // End the tour
@@ -43,16 +51,11 @@ export const TourProvider = ({ children }) => {
     setActive(false);
     setAutoPlay(false);
     
-    // Clean up any actions from the current step
-    if (currentStep && currentStep.onHide) {
-      executeAction(currentStep.onHide);
-    }
-    
-    // Remove keyboard event listener
-    document.removeEventListener('keydown', handleKeyDown);
-    
     // Re-enable scrolling
     document.body.style.overflow = '';
+    
+    // Dispatch tour:end event
+    window.dispatchEvent(new CustomEvent('tour:end'));
   };
 
   // Complete the tour
@@ -62,26 +65,16 @@ export const TourProvider = ({ children }) => {
     setCompleted(true);
     setAutoPlay(false);
     
-    // Clean up any actions from the current step
-    if (currentStep && currentStep.onHide) {
-      executeAction(currentStep.onHide);
-    }
-    
-    // Remove keyboard event listener
-    document.removeEventListener('keydown', handleKeyDown);
-    
     // Re-enable scrolling
     document.body.style.overflow = '';
+    
+    // Dispatch tour:end event
+    window.dispatchEvent(new CustomEvent('tour:end'));
   };
 
   // Go to the next step
   const nextStep = () => {
-    if (currentStepIndex < steps.length - 1) {
-      // Clean up any actions from the current step
-      if (currentStep && currentStep.onHide) {
-        executeAction(currentStep.onHide);
-      }
-      
+    if (currentStepIndex < totalSteps - 1) {
       const nextIndex = currentStepIndex + 1;
       console.log('Going to next step:', nextIndex);
       setCurrentStepIndex(nextIndex);
@@ -94,11 +87,6 @@ export const TourProvider = ({ children }) => {
   // Go to the previous step
   const prevStep = () => {
     if (currentStepIndex > 0) {
-      // Clean up any actions from the current step
-      if (currentStep && currentStep.onHide) {
-        executeAction(currentStep.onHide);
-      }
-      
       const prevIndex = currentStepIndex - 1;
       console.log('Going to previous step:', prevIndex);
       setCurrentStepIndex(prevIndex);
@@ -108,12 +96,7 @@ export const TourProvider = ({ children }) => {
 
   // Go to a specific step
   const goToStep = (index) => {
-    if (index >= 0 && index < steps.length) {
-      // Clean up any actions from the current step
-      if (currentStep && currentStep.onHide) {
-        executeAction(currentStep.onHide);
-      }
-      
+    if (index >= 0 && index < totalSteps) {
       console.log('Going to specific step:', index);
       setCurrentStepIndex(index);
       setStepHistory([...stepHistory, index]);
@@ -136,48 +119,52 @@ export const TourProvider = ({ children }) => {
     setCompleted(false);
   };
 
-  // Execute an action function
-  const executeAction = (actionFn) => {
-    if (typeof actionFn === 'function') {
-      try {
-        actionFn();
-      } catch (error) {
-        console.error('Error executing tour action:', error);
+  // Handle keyboard events
+  const handleKeyDown = (e) => {
+    if (active) {
+      // Prevent default behavior for arrow keys, escape, enter, and space
+      if (
+        e.key === 'ArrowRight' || 
+        e.key === 'ArrowLeft' || 
+        e.key === 'Escape' || 
+        e.key === 'Enter' || 
+        e.key === ' '
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Handle navigation with keyboard
+        switch (e.key) {
+          case 'ArrowRight':
+          case 'Enter':
+          case ' ':
+            nextStep();
+            break;
+          case 'ArrowLeft':
+            prevStep();
+            break;
+          case 'Escape':
+            endTour();
+            break;
+          default:
+            break;
+        }
       }
     }
   };
 
-  // Handle keyboard events
-  const handleKeyDown = (e) => {
-    // Prevent default behavior for arrow keys, escape, enter, and space
-    if (
-      e.key === 'ArrowRight' || 
-      e.key === 'ArrowLeft' || 
-      e.key === 'Escape' || 
-      e.key === 'Enter' || 
-      e.key === ' '
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Handle navigation with keyboard
-      switch (e.key) {
-        case 'ArrowRight':
-        case 'Enter':
-        case ' ':
-          nextStep();
-          break;
-        case 'ArrowLeft':
-          prevStep();
-          break;
-        case 'Escape':
-          endTour();
-          break;
-        default:
-          break;
-      }
+  // Set up keyboard listeners
+  useEffect(() => {
+    if (active) {
+      document.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.removeEventListener('keydown', handleKeyDown);
     }
-  };
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [active, currentStepIndex]);
 
   // Clean up when component unmounts
   useEffect(() => {
@@ -187,17 +174,12 @@ export const TourProvider = ({ children }) => {
     };
   }, []);
 
-  // Log when active state changes
-  useEffect(() => {
-    console.log('Tour active state changed:', active);
-  }, [active]);
-
   // Value to be provided by the context
   const value = {
     active,
     currentStep,
     currentStepIndex,
-    totalSteps: steps.length,
+    totalSteps,
     stepHistory,
     autoPlay,
     completed,
@@ -208,8 +190,7 @@ export const TourProvider = ({ children }) => {
     goToStep,
     setAutoPlay: setAutoPlayMode,
     completeTour,
-    resetTour,
-    executeAction
+    resetTour
   };
 
   return (
@@ -219,4 +200,4 @@ export const TourProvider = ({ children }) => {
   );
 };
 
-export default TourContext; 
+export default TourContext;

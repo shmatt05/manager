@@ -1,15 +1,13 @@
 import React from 'react';
 import { TourProvider as ContextProvider } from '../../contexts/TourContext';
-import TourOverlay from './TourOverlay';
 import TourDialog from './TourDialog';
+import TourOverlay from './TourOverlay';
 
 /**
  * TourProvider component
- * Wraps the application with the tour context and renders the tour components
+ * Main wrapper component for the tour functionality
  */
 const TourProvider = ({ children }) => {
-  console.log('Rendering TourProvider');
-  
   return (
     <ContextProvider>
       {children}
@@ -19,4 +17,4 @@ const TourProvider = ({ children }) => {
   );
 };
 
-export default TourProvider; 
+export default TourProvider;

@@ -3,7 +3,7 @@ import { useTour } from '../../contexts/TourContext';
 
 /**
  * TourDialog component
- * Displays the tour content and navigation controls
+ * A simplified, reliable dialog for displaying tour content
  */
 const TourDialog = () => {
   const { 
@@ -13,286 +13,199 @@ const TourDialog = () => {
     totalSteps,
     nextStep, 
     prevStep, 
-    endTour,
-    goToStep,
-    executeAction
+    endTour 
   } = useTour();
   
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
   const dialogRef = useRef(null);
-  const [windowSize, setWindowSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  });
-
-  // Log when the component renders
-  console.log('TourDialog rendering, active:', active, 'currentStep:', currentStep ? currentStep.id : null);
-
-  // Update window size on resize
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  
+  // Update dimensions on resize
   useEffect(() => {
     const handleResize = () => {
-      setWindowSize({
+      setDimensions({
         width: window.innerWidth,
         height: window.innerHeight
       });
     };
-
+    
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Position the dialog based on the target element and specified position
+  
+  // Position the dialog based on current step settings
   useEffect(() => {
-    if (!active || !currentStep || !dialogRef.current) {
-      return;
-    }
-
-    console.log('Positioning dialog for step:', currentStep.id);
-
-    const targetSelector = currentStep.target;
-    const dialogPosition = currentStep.position || 'center';
+    if (!active || !currentStep) return;
     
-    // Default position (center of screen)
-    let newPosition = {
-      top: windowSize.height / 2,
-      left: windowSize.width / 2,
-      transform: 'translate(-50%, -50%)'
-    };
-
-    // If no target or position is 'center', keep the dialog centered
-    if (!targetSelector || dialogPosition === 'center') {
-      setPosition(newPosition);
-      return;
-    }
-
-    // Find the target element
-    const targetElement = document.querySelector(targetSelector);
-    if (!targetElement) {
-      console.warn(`Tour target element not found: ${targetSelector}`);
-      setPosition(newPosition);
-      return;
-    }
-
-    // Get the element's position and dimensions
-    const targetRect = targetElement.getBoundingClientRect();
-    const dialogRect = dialogRef.current.getBoundingClientRect();
+    // Default position (center)
+    let newPosition = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
     
-    // Calculate position based on the specified position
-    switch (dialogPosition) {
-      case 'top':
-        newPosition = {
-          top: targetRect.top - dialogRect.height - 20,
-          left: targetRect.left + (targetRect.width / 2),
-          transform: 'translateX(-50%)'
-        };
-        break;
-      case 'bottom':
-        newPosition = {
-          top: targetRect.bottom + 20,
-          left: targetRect.left + (targetRect.width / 2),
-          transform: 'translateX(-50%)'
-        };
-        break;
-      case 'left':
-        newPosition = {
-          top: targetRect.top + (targetRect.height / 2),
-          left: targetRect.left - dialogRect.width - 20,
-          transform: 'translateY(-50%)'
-        };
-        break;
-      case 'right':
-        newPosition = {
-          top: targetRect.top + (targetRect.height / 2),
-          left: targetRect.right + 20,
-          transform: 'translateY(-50%)'
-        };
-        break;
-      default:
-        // Default to center if position is not recognized
-        break;
-    }
-
-    // Ensure the dialog stays within the viewport
-    const padding = 20;
-    
-    // Check top boundary
-    if (newPosition.top < padding) {
-      newPosition.top = padding;
-      if (newPosition.transform.includes('translateY')) {
-        newPosition.transform = newPosition.transform.replace('translateY(-50%)', '');
+    // If there's a specific position for this step
+    if (currentStep.position === 'center') {
+      // Keep default center positioning
+    } else if (currentStep.target && currentStep.target !== 'body' && currentStep.position) {
+      try {
+        // Find the target element
+        const targetEl = document.querySelector(currentStep.target);
+        if (targetEl) {
+          const targetRect = targetEl.getBoundingClientRect();
+          
+          // Position based on target and specified position
+          switch (currentStep.position) {
+            case 'top':
+              newPosition = {
+                top: `${targetRect.top - 20}px`,
+                left: `${targetRect.left + targetRect.width/2}px`,
+                transform: 'translate(-50%, -100%)'
+              };
+              break;
+            case 'bottom':
+              newPosition = {
+                top: `${targetRect.bottom + 20}px`,
+                left: `${targetRect.left + targetRect.width/2}px`,
+                transform: 'translate(-50%, 0)'
+              };
+              break;
+            case 'left':
+              newPosition = {
+                top: `${targetRect.top + targetRect.height/2}px`,
+                left: `${targetRect.left - 20}px`,
+                transform: 'translate(-100%, -50%)'
+              };
+              break;
+            case 'right':
+              newPosition = {
+                top: `${targetRect.top + targetRect.height/2}px`,
+                left: `${targetRect.right + 20}px`,
+                transform: 'translate(0, -50%)'
+              };
+              break;
+            default:
+              break;
+          }
+        }
+      } catch (error) {
+        console.error('Error positioning dialog:', error);
       }
     }
     
-    // Check bottom boundary
-    if (newPosition.top + dialogRect.height > windowSize.height - padding) {
-      newPosition.top = windowSize.height - dialogRect.height - padding;
-      if (newPosition.transform.includes('translateY')) {
-        newPosition.transform = newPosition.transform.replace('translateY(-50%)', '');
+    // Apply any offset specified for this step
+    if (currentStep.dialogOffset) {
+      if (typeof newPosition.top === 'string' && newPosition.top.endsWith('px')) {
+        newPosition.top = `${parseInt(newPosition.top) + (currentStep.dialogOffset.y || 0)}px`;
+      }
+      if (typeof newPosition.left === 'string' && newPosition.left.endsWith('px')) {
+        newPosition.left = `${parseInt(newPosition.left) + (currentStep.dialogOffset.x || 0)}px`;
       }
     }
     
-    // Check left boundary
-    if (newPosition.left < padding) {
-      newPosition.left = padding;
-      if (newPosition.transform.includes('translateX')) {
-        newPosition.transform = newPosition.transform.replace('translateX(-50%)', '');
-      }
-    }
-    
-    // Check right boundary
-    if (newPosition.left + dialogRect.width > windowSize.width - padding) {
-      newPosition.left = windowSize.width - dialogRect.width - padding;
-      if (newPosition.transform.includes('translateX')) {
-        newPosition.transform = newPosition.transform.replace('translateX(-50%)', '');
-      }
-    }
-
     setPosition(newPosition);
-  }, [active, currentStep, windowSize, dialogRef]);
-
-  // Execute the onShow action when the step changes
-  useEffect(() => {
-    if (active && currentStep && currentStep.onShow && typeof currentStep.onShow === 'function') {
-      console.log('Executing onShow action for step:', currentStep.id);
-      executeAction(currentStep.onShow);
+    
+    // Call onShow handler if available
+    if (currentStep.onShow && typeof currentStep.onShow === 'function') {
+      try {
+        currentStep.onShow();
+      } catch (error) {
+        console.error('Error in step onShow handler:', error);
+      }
     }
-  }, [active, currentStep, executeAction]);
-
+    
+    // Return cleanup function
+    return () => {
+      // Call onHide handler if available
+      if (currentStep.onHide && typeof currentStep.onHide === 'function') {
+        try {
+          currentStep.onHide();
+        } catch (error) {
+          console.error('Error in step onHide handler:', error);
+        }
+      }
+    };
+  }, [active, currentStep, dimensions, currentStepIndex]);
+  
   // Don't render anything if the tour is not active
   if (!active || !currentStep) {
     return null;
   }
-
-  // Create a progress indicator
-  const progressPercentage = ((currentStepIndex + 1) / totalSteps) * 100;
-
-  // Process content to improve readability
-  const processContent = (content) => {
-    // Replace <ul> with styled lists
-    let processed = content.replace(/<ul>/g, '<ul class="space-y-2 my-4">');
-    
-    // Replace <li> with styled list items based on quadrant colors
-    const quadrantColors = {
-      do: '#FF6B6B', // Coral for Do (Urgent/Important)
-      delegate: '#3AAAA0', // Darker Teal for Delegate (was #4ECDC4)
-      backlog: '#95A5A6', // Warm gray for Backlog
-      default: '#7F8C8D' // Steel gray for default
-    };
-    
-    // Use different bullet colors based on content
-    processed = processed.replace(/<li>/g, (match, offset) => {
-      // Determine which color to use based on content
-      let bulletColor = quadrantColors.default;
-      
-      // Check if the content after this <li> contains specific keywords
-      const remainingContent = content.substring(offset);
-      if (remainingContent.includes('urgent') || remainingContent.includes('important')) {
-        bulletColor = quadrantColors.do;
-      } else if (remainingContent.includes('delegate') || remainingContent.includes('later')) {
-        bulletColor = quadrantColors.delegate;
-      } else if (remainingContent.includes('backlog')) {
-        bulletColor = quadrantColors.backlog;
-      }
-      
-      return `<li class="flex items-start"><span class="inline-block w-2 h-2 bg-[${bulletColor}] rounded-full mt-1.5 mr-2 flex-shrink-0"></span><span>`;
-    });
-    
-    processed = processed.replace(/<\/li>/g, '</span></li>');
-    
-    // Add spacing to paragraphs
-    processed = processed.replace(/<p>/g, '<p class="mb-3">');
-    
-    // Style strong elements with darker turquoise for better visibility
-    processed = processed.replace(/<strong>/g, '<strong class="text-[#2C3E50] dark:text-[#3AAAA0] font-medium">');
-    
-    // Ensure code blocks have proper contrast
-    processed = processed.replace(/<code class="bg-gray-100 dark:bg-gray-700/g, '<code class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200');
-    
-    return processed;
-  };
-
-  console.log('Rendering TourDialog with position:', position);
-
+  
+  // Calculate the progress percentage
+  const progress = ((currentStepIndex + 1) / totalSteps) * 100;
+  
   return (
     <div 
-      ref={dialogRef}
-      className="fixed z-[60] rounded-lg shadow-xl p-8 transition-all duration-300 ease-in-out"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        transform: position.transform || '',
-        maxWidth: '90vw',
-        width: '500px',
-        background: 'linear-gradient(to bottom right, #F0F0F0, #E5E7EB)', // Darker light gray background
-        borderColor: '#7F8C8D',
-        boxShadow: '0 8px 16px rgba(52, 73, 94, 0.1)',
-        pointerEvents: 'auto', // Ensure the dialog receives pointer events
-      }}
-      onClick={(e) => e.stopPropagation()} // Prevent clicks from propagating to elements below
+      className="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center"
+      style={{ pointerEvents: 'none' }}
     >
-      {/* Title */}
-      <h2 className="text-2xl font-semibold mb-4 text-[#2C3E50] border-b border-[#7F8C8D] pb-3">
-        {currentStep.title}
-      </h2>
-      
-      {/* Content */}
       <div 
-        className="text-[#2C3E50] mb-6 prose prose-sm max-w-none overflow-auto"
-        style={{ 
-          maxHeight: '60vh',
-          boxShadow: 'inset 0 0 8px rgba(58, 170, 160, 0.08)' // Darker teal shadow
+        ref={dialogRef}
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-lg pointer-events-auto"
+        style={{
+          position: 'absolute',
+          top: position.top,
+          left: position.left,
+          transform: position.transform,
+          zIndex: 60
         }}
-        dangerouslySetInnerHTML={{ __html: processContent(currentStep.content) }}
-      />
-      
-      {/* Progress bar */}
-      <div className="w-full h-1.5 bg-[#BDC3C7] rounded-full mb-4">
+      >
+        {/* Title */}
+        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100 border-b pb-2">
+          {currentStep.title}
+        </h2>
+        
+        {/* Content */}
         <div 
-          className="h-1.5 bg-[#3AAAA0] rounded-full transition-all duration-300 ease-in-out" // Darker teal
-          style={{ width: `${progressPercentage}%` }}
+          className="prose prose-sm dark:prose-invert max-w-none mb-6"
+          dangerouslySetInnerHTML={{ __html: currentStep.content }}
         />
-      </div>
-      
-      {/* Step indicator */}
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-sm text-[#7F8C8D]">
-          Step {currentStepIndex + 1} of {totalSteps}
-        </span>
         
-        {/* Skip button */}
-        <button
-          onClick={endTour}
-          className="text-sm text-[#34495E] hover:text-[#2C3E50] transition-colors"
-        >
-          Skip Tour
-        </button>
-      </div>
-      
-      {/* Navigation buttons */}
-      <div className="flex justify-between">
-        {/* Back button */}
-        <button
-          onClick={prevStep}
-          disabled={currentStepIndex === 0}
-          className={`px-4 py-2 rounded-md transition-colors ${
-            currentStepIndex === 0
-              ? 'bg-[#BDC3C7] text-[#95A5A6] cursor-not-allowed'
-              : 'bg-[#BDC3C7] text-[#34495E] hover:bg-[#95A5A6]'
-          }`}
-        >
-          Back
-        </button>
+        {/* Progress bar */}
+        <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded mb-4">
+          <div 
+            className="h-1 bg-blue-500 rounded"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
         
-        {/* Next/Finish button */}
-        <button
-          onClick={currentStepIndex === totalSteps - 1 ? endTour : nextStep}
-          className="px-4 py-2 bg-[#2ECC71] text-white rounded-md hover:bg-[#27AE60] transition-colors"
-        >
-          {currentStepIndex === totalSteps - 1 ? 'Finish' : 'Next'}
-        </button>
+        {/* Navigation */}
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Step {currentStepIndex + 1} of {totalSteps}
+          </div>
+          
+          <div className="space-x-2">
+            <button
+              onClick={endTour}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Skip
+            </button>
+            
+            <button
+              onClick={prevStep}
+              disabled={currentStepIndex === 0}
+              className={`px-3 py-1 rounded ${
+                currentStepIndex === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Back
+            </button>
+            
+            <button
+              onClick={nextStep}
+              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+            >
+              {currentStepIndex === totalSteps - 1 ? 'Finish' : 'Next'}
+            </button>
+          </div>
+        </div>
+        
+        {/* Render component if provided */}
+        {currentStep.component && React.createElement(currentStep.component)}
       </div>
     </div>
   );
 };
 
-export default TourDialog; 
+export default TourDialog;
