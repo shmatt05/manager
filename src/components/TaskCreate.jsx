@@ -132,6 +132,7 @@ const TaskCreate = ({ onCreateTask }) => {
     <form 
       onSubmit={handleSubmit} 
       className="w-full max-w-xl flex gap-1"
+      data-tour-interaction="enabled"
     >
       <input
         type="text"
@@ -144,6 +145,7 @@ const TaskCreate = ({ onCreateTask }) => {
                  focus:ring-blue-200 dark:focus:ring-blue-500/30 focus:outline-none transition-all
                  placeholder:text-gray-400 dark:placeholder:text-gray-400 min-w-[280px]"
         ref={inputRef}
+        data-tour-interaction="enabled"
       />
       <button
         type="submit"
@@ -151,6 +153,7 @@ const TaskCreate = ({ onCreateTask }) => {
         className="px-3 py-1 text-white text-sm bg-blue-500 dark:bg-blue-600 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700
                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
         data-tour-id="add-task-button"
+        data-tour-interaction="enabled"
       >
         Add
       </button>

@@ -41,6 +41,9 @@ export const TourProvider = ({ children }) => {
     // Disable scrolling on the body when tour is active
     document.body.style.overflow = 'hidden';
     
+    // Add tour-active class to body to prevent interactions
+    document.body.classList.add('tour-active');
+    
     // Dispatch tour:start event
     window.dispatchEvent(new CustomEvent('tour:start'));
   };
@@ -53,6 +56,9 @@ export const TourProvider = ({ children }) => {
     
     // Re-enable scrolling
     document.body.style.overflow = '';
+    
+    // Remove tour-active class from body
+    document.body.classList.remove('tour-active');
     
     // Dispatch tour:end event
     window.dispatchEvent(new CustomEvent('tour:end'));
@@ -67,6 +73,9 @@ export const TourProvider = ({ children }) => {
     
     // Re-enable scrolling
     document.body.style.overflow = '';
+    
+    // Remove tour-active class from body
+    document.body.classList.remove('tour-active');
     
     // Dispatch tour:end event
     window.dispatchEvent(new CustomEvent('tour:end'));
@@ -171,6 +180,7 @@ export const TourProvider = ({ children }) => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
+      document.body.classList.remove('tour-active');
     };
   }, []);
 

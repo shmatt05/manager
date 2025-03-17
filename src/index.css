@@ -277,9 +277,29 @@ input, textarea, select {
   animation: dashOffset 3s linear infinite;
 }
 
-/* Ensure tour dialog doesn't interfere with interactions */
+/* Tour-related styles */
 .tour-active .matrix-board {
   z-index: 10;
+}
+
+/* Prevent interaction with matrix components during tour */
+.tour-active .task-card {
+  pointer-events: none !important;
+}
+
+.tour-active .quadrant {
+  pointer-events: none !important;
+}
+
+/* Only allow interaction with specifically marked elements */
+.tour-active [data-tour-interaction="enabled"] {
+  pointer-events: auto !important;
+}
+
+/* For specific steps where we want to allow interactions */
+.tour-active.tour-allow-interaction .task-card,
+.tour-active.tour-allow-interaction .quadrant {
+  pointer-events: auto !important;
 }
 
 .tour-target-highlight {
