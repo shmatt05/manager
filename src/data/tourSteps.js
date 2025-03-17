@@ -1,4 +1,5 @@
 import TourTaskMoveDemo from '../components/Tour/TourTaskMoveDemo';
+import TaskInputDemo from '../components/Tour/TaskInputDemo';
 
 /**
  * Tour steps configuration
@@ -71,11 +72,13 @@ const tourSteps = [
         </li>
       </ul>
       
-      <p class="italic text-gray-600 dark:text-gray-400">Try adding a task with the #do hashtag to place it in the "Do" quadrant.</p>
+      <p class="italic text-gray-600 dark:text-gray-400">Watch as we add a task with the #do hashtag to place it in the "Do" quadrant.</p>
     `,
-    target: '[data-tour-id="add-task-button"]',
+    target: 'form input[type="text"]',
     position: 'bottom',
-    dialogOffset: { x: 0, y: 20 }
+    dialogOffset: { x: 0, y: 20 },
+    blockBackground: false,
+    component: TaskInputDemo
   },
   
   {
@@ -194,6 +197,7 @@ const tourSteps = [
     target: 'body',
     position: 'center',
     disableOverlay: true,
+    blockBackground: false,
     component: TourTaskMoveDemo
   },
   

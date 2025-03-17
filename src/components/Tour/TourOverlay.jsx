@@ -77,7 +77,7 @@ const TourOverlay = () => {
       <div 
         className="absolute inset-0 bg-black/50"
         style={{
-          pointerEvents: 'none'
+          pointerEvents: currentStep.blockBackground === false ? 'none' : 'auto'
         }}
       />
       

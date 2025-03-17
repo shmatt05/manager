@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
  * A React-based animated cursor for tour demonstrations
  * Uses React state for animation, avoiding direct DOM manipulation
  */
-const TourCursor = ({ fromPosition, toPosition, duration = 1000, showClick = false, onComplete = null }) => {
+const TourCursor = ({ fromPosition, toPosition, duration = 1000, showClick = false, onComplete = null, visible = true }) => {
   const [position, setPosition] = useState(fromPosition);
   const [isClicking, setIsClicking] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -67,7 +67,7 @@ const TourCursor = ({ fromPosition, toPosition, duration = 1000, showClick = fal
     };
   }, [fromPosition, toPosition, duration, showClick, onComplete]);
   
-  if (!isVisible) return null;
+  if (!isVisible || !visible) return null;
   
   return (
     <div 
