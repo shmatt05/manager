@@ -75,7 +75,7 @@ const TourOverlay = () => {
     <div className="fixed inset-0 z-40 pointer-events-none">
       {/* Semi-transparent background */}
       <div 
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/25"
         style={{
           pointerEvents: currentStep.blockBackground === false ? 'none' : 'auto'
         }}
@@ -92,7 +92,7 @@ const TourOverlay = () => {
               top: targetRect.top,
               width: targetRect.width,
               height: targetRect.height,
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.75)',
+              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.25)',
               borderRadius: '4px'
             }}
           />

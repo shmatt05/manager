@@ -15,9 +15,8 @@ const TaskInputDemo = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [demoText] = useState('Complete project proposal #do @tomorrow');
   
-  // Update input element and cursor positions
-  const updatePositions = useCallback(() => {
-    // Find input field
+  // Find DOM elements and calculate positions
+  const findElements = useCallback(() => {
     const inputField = document.querySelector('form input[type="text"]');
     const addButton = document.querySelector('[data-tour-id="add-task-button"]');
     
@@ -26,7 +25,7 @@ const TaskInputDemo = () => {
       const buttonRect = addButton.getBoundingClientRect();
       
       // Position for typing (inside input field)
-      const typingX = inputRect.left + Math.min(100, inputRect.width * 0.3);
+      const typingX = inputRect.left + 120;
       const typingY = inputRect.top + (inputRect.height / 2);
       
       // Position for clicking button
@@ -34,97 +33,139 @@ const TaskInputDemo = () => {
       const buttonY = buttonRect.top + (buttonRect.height / 2);
       
       return {
-        typingPosition: { x: typingX, y: typingY },
-        buttonPosition: { x: buttonX, y: buttonY },
         inputField,
-        addButton
+        addButton,
+        typingPosition: { x: typingX, y: typingY },
+        buttonPosition: { x: buttonX, y: buttonY }
       };
     }
     
     return null;
   }, []);
   
-  // Simulate typing effect
-  const simulateTyping = useCallback((text, inputElement) => {
-    let index = 0;
+  // Type text in input field
+  const typeText = useCallback((text, inputField) => {
+    if (!inputField) return;
     
-    const typeNextChar = () => {
-      if (index <= text.length) {
-        const currentText = text.substring(0, index);
+    // Clear existing input value
+    inputField.value = '';
+    
+    // Create and dispatch an input event to update the React state
+    const inputEvent = new Event('input', { bubbles: true });
+    
+    let charIndex = 0;
+    
+    const typeChar = () => {
+      if (charIndex < text.length) {
+        // Add one character
+        const currentText = text.substring(0, charIndex + 1);
+        inputField.value = currentText;
         setTypedText(currentText);
         
-        // Update the actual input field value and dispatch input event
-        if (inputElement) {
-          inputElement.value = currentText;
-          const inputEvent = new Event('input', { bubbles: true });
-          inputElement.dispatchEvent(inputEvent);
-        }
+        // Dispatch event to React
+        inputField.dispatchEvent(inputEvent);
         
-        index++;
-        setTimeout(typeNextChar, 100);
+        // Move to next character
+        charIndex++;
+        setTimeout(typeChar, 100);
       } else {
-        // Typing finished, move to button
-        setTimeout(() => {
-          setStep(1);
-        }, 500);
+        // Typing complete
+        setTimeout(() => setStep(1), 800);
       }
     };
     
-    typeNextChar();
+    setTimeout(typeChar, 500);
   }, []);
   
-  // Start the demo when component mounts
-  useEffect(() => {
-    // Initial delay before starting
-    const startTimeout = setTimeout(() => {
-      const positions = updatePositions();
-      if (positions) {
-        // Start by moving cursor to input field
-        setCursorPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        setTargetPosition(positions.typingPosition);
-        
-        // After cursor reaches input, begin typing
-        setTimeout(() => {
-          simulateTyping(demoText, positions.inputField);
-        }, 1500); // Allow time for cursor to move to input
-      }
-    }, 1000);
+  // Click button
+  const clickButton = useCallback((button) => {
+    if (!button) return;
     
-    return () => clearTimeout(startTimeout);
-  }, [updatePositions, simulateTyping, demoText]);
+    // Create a click event (this will both visually click and trigger React handlers)
+    const clickEvent = new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    });
+    
+    // Show click animation first
+    setShowClick(true);
+    
+    // Then dispatch click event
+    setTimeout(() => {
+      button.dispatchEvent(clickEvent);
+      
+      // Wait a bit before hiding cursor to make sure we see the result
+      setTimeout(() => setIsComplete(true), 1000);
+    }, 300);
+  }, []);
   
-  // Handle moving to button after typing
+  // Initialize demo  
+  useEffect(() => {
+    const initialize = () => {
+      const elements = findElements();
+      if (!elements) {
+        // If elements not found, retry
+        setTimeout(initialize, 100);
+        return;
+      }
+      
+      const { typingPosition } = elements;
+      
+      // Set initial cursor position (center of screen)
+      const startX = window.innerWidth / 2;
+      const startY = window.innerHeight / 2;
+      
+      setCursorPosition({ x: startX, y: startY });
+      
+      // Move cursor to input field
+      setTimeout(() => {
+        setTargetPosition(typingPosition);
+        
+        // Begin typing after cursor arrives
+        setTimeout(() => {
+          typeText(demoText, elements.inputField);
+        }, 1000);
+      }, 500);
+    };
+    
+    // Start with a delay
+    setTimeout(initialize, 800);
+    
+    // Cleanup
+    return () => {
+      // Reset form if demo is interrupted
+      const inputField = document.querySelector('form input[type="text"]');
+      if (inputField) {
+        inputField.value = '';
+        inputField.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+  }, [findElements, typeText, demoText]);
+  
+  // Handle step transitions
   useEffect(() => {
     if (step === 1) {
-      const positions = updatePositions();
-      if (positions) {
-        setTargetPosition(positions.buttonPosition);
+      const elements = findElements();
+      if (elements) {
+        setTargetPosition(elements.buttonPosition);
+        
+        // Click button after cursor arrives
         setTimeout(() => {
-          setShowClick(true);
-          
-          // After clicking, trigger actual button click
-          setTimeout(() => {
-            if (positions.addButton) {
-              positions.addButton.click();
-              setIsComplete(true);
-            }
-          }, 300);
+          clickButton(elements.addButton);
         }, 1000);
       }
     }
-  }, [step, updatePositions]);
+  }, [step, findElements, clickButton]);
   
   return (
-    <>
-      {/* Controlled input field for visual feedback */}
-      <TourCursor 
-        fromPosition={cursorPosition} 
-        toPosition={targetPosition}
-        duration={1500}
-        showClick={showClick}
-        visible={!isComplete}
-      />
-    </>
+    <TourCursor 
+      fromPosition={cursorPosition} 
+      toPosition={targetPosition}
+      duration={1000}
+      showClick={showClick}
+      visible={!isComplete}
+    />
   );
 };
 

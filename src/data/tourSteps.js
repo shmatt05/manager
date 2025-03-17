@@ -78,6 +78,7 @@ const tourSteps = [
     position: 'bottom',
     dialogOffset: { x: 0, y: 20 },
     blockBackground: false,
+    disableSpotlight: true,
     component: TaskInputDemo
   },
   
