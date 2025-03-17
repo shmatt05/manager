@@ -40,9 +40,21 @@ const TourDialog = () => {
     // Default position (center)
     let newPosition = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
     
-    // If there's a specific position for this step
-    if (currentStep.position === 'center') {
+    // If we have an explicit dialogPosition, use it directly
+    if (currentStep.dialogPosition) {
+      newPosition = { ...currentStep.dialogPosition };
+    }
+    // Otherwise, use position relative to target
+    else if (currentStep.position === 'center') {
       // Keep default center positioning
+    } else if (currentStep.position === 'top-right') {
+      // Position at top right corner
+      newPosition = {
+        top: '20px',
+        right: '20px',
+        left: 'auto',
+        transform: 'none'
+      };
     } else if (currentStep.target && currentStep.target !== 'body' && currentStep.position) {
       try {
         // Find the target element

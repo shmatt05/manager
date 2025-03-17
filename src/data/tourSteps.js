@@ -193,10 +193,11 @@ const tourSteps = [
         </li>
       </ul>
       
-      <p class="italic text-gray-600 dark:text-gray-400">Tasks can be moved from the "Do" quadrant to the "Delegate" quadrant by dragging.</p>
+      <p class="italic text-gray-600 dark:text-gray-400">Watch as we move a task from "Do" to "Delegate" by dragging.</p>
     `,
     target: 'body',
-    position: 'center',
+    position: 'top-right',
+    dialogPosition: { top: '20px', left: 'auto', right: '20px', transform: 'none' },
     disableOverlay: true,
     blockBackground: false,
     component: TourTaskMoveDemo
