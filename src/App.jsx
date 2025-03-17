@@ -11,6 +11,9 @@ import HistoryView from './views/HistoryView'
 import Header from './components/Header'
 import { TaskService } from './services/TaskService'
 import { config } from './config'
+import TourProvider from './components/Tour/TourProvider'
+import TourDemoBoard from './components/Tour/TourDemoBoard'
+import { useTour } from './contexts/TourContext'
 
 const queryClient = new QueryClient()
 
@@ -31,6 +34,7 @@ function AppContent() {
   const [sendAllToBacklogFn, setSendAllToBacklogFn] = useState(null)
   const { user, loading } = useAuth()
   const { isProd, useFirebase } = config
+  const { active } = useTour()
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
@@ -132,6 +136,36 @@ function AppContent() {
     }
   }, [useFirebase, user, lastLocalUpdate]);
 
+  // Listen for tour events
+  useEffect(() => {
+    const handleTourStart = (e) => {
+      // Save current state in localStorage
+      localStorage.setItem('pre_tour_state', JSON.stringify({
+        tasks: tasks,
+        activeTab: activeTab
+      }));
+    };
+    
+    const handleTourEnd = (e) => {
+      // Restore pre-tour state
+      const preTourState = localStorage.getItem('pre_tour_state');
+      if (preTourState) {
+        const state = JSON.parse(preTourState);
+        setTasks(state.tasks);
+        setActiveTab(state.activeTab);
+        localStorage.removeItem('pre_tour_state');
+      }
+    };
+    
+    window.addEventListener('tour:start', handleTourStart);
+    window.addEventListener('tour:end', handleTourEnd);
+    
+    return () => {
+      window.removeEventListener('tour:start', handleTourStart);
+      window.removeEventListener('tour:end', handleTourEnd);
+    };
+  }, [tasks, activeTab]);
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -190,10 +224,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <AppContent />
-      </QueryClientProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TourProvider>
+          <TourDemoBoard />
+          <AppContent />
+        </TourProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

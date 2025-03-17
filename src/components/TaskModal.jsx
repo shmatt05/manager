@@ -1,15 +1,59 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Dialog } from '@headlessui/react';
-import TicketHistory from './TicketHistory';
+import { Tab } from '@headlessui/react';
 import { format, parseISO } from 'date-fns';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { ArrowUturnLeftIcon, CheckIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, CheckIcon, TrashIcon, PencilIcon, PlusIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { config } from '../config';
+import { db, isFirebaseReady } from '../firebase';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import HistoryEntry from '../components/HistoryEntry';
 
-// Tab panel component
-function TabPanel({ children, value, index }) {
-  if (value !== index) return null;
-  return <div className="animate-fade-in">{children}</div>;
-}
+// Helper functions for history display
+const getHistoryIcon = (type) => {
+  switch (type) {
+    case 'created':
+      return <PlusIcon className="w-4 h-4 text-green-500" />;
+    case 'updated':
+      return <PencilIcon className="w-4 h-4 text-blue-500" />;
+    case 'completed':
+      return <CheckIcon className="w-4 h-4 text-green-500" />;
+    case 'reopened':
+      return <ArrowUturnLeftIcon className="w-4 h-4 text-amber-500" />;
+    case 'due_date':
+      return <ClockIcon className="w-4 h-4 text-purple-500" />;
+    default:
+      return <PencilIcon className="w-4 h-4 text-gray-500" />;
+  }
+};
+
+const getHistoryTitle = (entry) => {
+  switch (entry.type) {
+    case 'created':
+      return 'Task created';
+    case 'updated':
+      return 'Task updated';
+    case 'completed':
+      return 'Marked as complete';
+    case 'reopened':
+      return 'Reopened task';
+    case 'due_date':
+      return 'Due date changed';
+    default:
+      return 'Task modified';
+  }
+};
+
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'Unknown date';
+  try {
+    return format(new Date(timestamp), 'PPpp');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
+};
 
 // Ripple effect component for buttons
 function Ripple() {
@@ -135,12 +179,72 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   const [editedTask, setEditedTask] = useState({ ...task });
   const [newTag, setNewTag] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [taskHistory, setTaskHistory] = useState([]);
   const detailsRipple = Ripple();
   const historyRipple = Ripple();
   const cancelRipple = Ripple();
   const saveRipple = Ripple();
   const addTagRipple = Ripple();
   const modalRef = useRef(null);
+  const { user } = useAuth();
+  const { isProd, useFirebase } = config;
+
+  // Load task history when modal opens
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!isOpen || !task?.id) return;
+
+      try {
+        if (useFirebase && user) {
+          if (!isFirebaseReady()) {
+            console.error('Firebase is not initialized');
+            return;
+          }
+
+          const historyRef = collection(db, `users/${user.uid}/taskHistory`);
+          const q = query(
+            historyRef,
+            where('ticketData.id', '==', task.id),
+            orderBy('timestamp', 'desc')
+          );
+          
+          const snapshot = await getDocs(q);
+          const historyData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setTaskHistory(historyData);
+        } else {
+          // For development/local storage
+          const allHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
+          const filteredHistory = allHistory
+            .filter(entry => entry.ticketData?.id === task.id)
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          setTaskHistory(filteredHistory);
+        }
+      } catch (error) {
+        console.error('Error loading task history:', error);
+        setTaskHistory([]);
+      }
+    };
+
+    loadHistory();
+  }, [isOpen, task, user, useFirebase]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check if CMD+Enter (Mac) or Ctrl+Enter (Windows) is pressed
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        handleSave();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editedTask]);
 
   // Define tabs
   const tabs = [
@@ -155,12 +259,16 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
       setDueDate('');
       setActiveTab('details');
     } else if (isOpen && task) {
-      setEditedTask(task);
+      // Make a clean copy of the task to avoid reference issues
+      setEditedTask({
+        ...JSON.parse(JSON.stringify(task)),
+        // Explicitly set completed state
+        completed: !!task.completed
+      });
       
-      // Initialize due date if task has a dueDate
       if (task.dueDate) {
         try {
-          setDueDate(task.dueDate.slice(0, 16)); // Format for datetime-local input
+          setDueDate(task.dueDate.slice(0, 16));
         } catch (error) {
           console.error('Error parsing due date:', error);
           setDueDate('');
@@ -192,19 +300,94 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setEditedTask((prev) => ({ ...prev, [name]: value }));
+    setEditedTask((prev) => ({ 
+      ...prev, 
+      [name]: value
+    }));
   };
 
   const handleDateChange = (e) => {
     const { name, value } = e.target;
-    // Convert the date string to a timestamp
     const date = new Date(value);
     const timestamp = date.getTime();
-    setEditedTask((prev) => ({ ...prev, [name]: timestamp }));
+    setEditedTask((prev) => ({ 
+      ...prev, 
+      [name]: timestamp
+    }));
   };
 
   const handleSave = () => {
-    onSave(editedTask);
+    // Create a changes object to track what was modified
+    const changes = [];
+    
+    // Fields to check for changes
+    const fieldsToCheck = [
+      { key: 'title', label: 'Title' },
+      { key: 'description', label: 'Description' },
+      { key: 'priority', label: 'Priority' },
+      { key: 'dueDate', label: 'Due Date' }
+    ];
+    
+    // Check each field for changes
+    fieldsToCheck.forEach(({ key, label }) => {
+      const oldValue = task[key];
+      const newValue = editedTask[key];
+      
+      // Skip if both are undefined or no change
+      if ((oldValue === undefined && newValue === undefined) || 
+          oldValue === newValue) {
+        return;
+      }
+      
+      changes.push({ 
+        field: label, 
+        oldValue: oldValue === undefined ? '' : oldValue, 
+        newValue: newValue === undefined ? '' : newValue 
+      });
+    });
+    
+    // Special handling for tags (array)
+    const oldTags = task.tags || [];
+    const newTags = editedTask.tags || [];
+    if (JSON.stringify(oldTags) !== JSON.stringify(newTags)) {
+      changes.push({
+        field: 'Tags',
+        oldValue: oldTags.join(', '),
+        newValue: newTags.join(', ')
+      });
+    }
+
+    // Prepare the task to save
+    const taskToSave = {
+      ...editedTask,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Handle special actions
+    if (editedTask._action === 'toggleComplete') {
+      // Toggle completion state
+      taskToSave.completed = !task.completed;
+      taskToSave.status = task.completed ? 'active' : 'completed';
+      
+      // Add completion change to history
+      changes.push({
+        field: 'Status',
+        oldValue: task.completed ? 'Completed' : 'Active',
+        newValue: taskToSave.completed ? 'Completed' : 'Active'
+      });
+    } else {
+      // For regular edits, preserve the original completion state
+      taskToSave.completed = !!task.completed;
+      taskToSave.status = task.status;
+    }
+    
+    // Add changes for history tracking if there are any
+    if (changes.length > 0) {
+      taskToSave._changes = changes;
+      taskToSave._action = taskToSave._action || 'UPDATE';
+    }
+
+    onSave(taskToSave);
     onClose();
   };
 
@@ -235,188 +418,225 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={handleClickOutside}
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="relative z-50"
+      data-tour-id="task-modal"
     >
       <div 
-        ref={modalRef} 
-        className="bg-white dark:bg-dark-surface-2 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={handleClickOutside}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-surface-6 px-5 py-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary select-none">
-            {task?.completed ? 'Completed Task' : 'Task Details'}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary select-none transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-dark-surface-4"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-dark-surface-6 px-5">
-          <button
-            className={`py-2 px-4 font-medium text-sm border-b-2 transition-colors select-none ${
-              activeTab === 'details'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary'
-            }`}
-            onClick={() => setActiveTab('details')}
-          >
-            Details
-          </button>
-          <button
-            className={`py-2 px-4 font-medium text-sm border-b-2 transition-colors select-none ${
-              activeTab === 'history'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary'
-            }`}
-            onClick={() => setActiveTab('history')}
-          >
-            History
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {activeTab === 'details' ? (
-            <div className="space-y-3">
-              {/* Title */}
-              <div>
-                <label htmlFor="title" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={editedTask.title || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label htmlFor="description" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={editedTask.description || ''}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
-                />
-              </div>
-
-              {/* Two column layout for Due Date and Tags */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Due Date */}
-                <div>
-                  <label htmlFor="dueDate" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
-                    Due Date
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="dueDate"
-                    name="dueDate"
-                    value={formatDateForInput(editedTask.dueDate)}
-                    onChange={handleDateChange}
-                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
-                  />
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label htmlFor="tags" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
-                    Tags
-                  </label>
-                  <input
-                    type="text"
-                    id="tags"
-                    name="tags"
-                    value={editedTask.tags ? editedTask.tags.join(', ') : ''}
-                    onChange={(e) => {
-                      const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
-                      setEditedTask(prev => ({ ...prev, tags: tagsArray }));
-                    }}
-                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
-                    placeholder="Enter tags separated by commas"
-                  />
-                </div>
-              </div>
-
-              {/* Created and Updated dates - read only */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-500 dark:text-dark-text-secondary mt-1 select-none">
-                <div>
-                  <span className="font-medium">Created:</span>{' '}
-                  {task?.createdAt ? format(new Date(task.createdAt), 'PPpp') : 'N/A'}
-                </div>
-                <div>
-                  <span className="font-medium">Last Updated:</span>{' '}
-                  {task?.updatedAt ? format(new Date(task.updatedAt), 'PPpp') : 'N/A'}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <TicketHistory taskId={task?.id} />
-          )}
-        </div>
-
-        {/* Footer with action buttons */}
-        <div className="border-t border-gray-200 dark:border-dark-surface-6 px-5 py-3 flex flex-wrap gap-2 justify-end select-none">
-          {task?.completed ? (
-            <button
-              onClick={handleReopen}
-              className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
+        <div 
+          ref={modalRef} 
+          className="bg-white dark:bg-dark-surface-2 rounded-xl shadow-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
+          style={{ height: '90vh' }}
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 flex items-center justify-between border-b border-gray-200 dark:border-dark-surface-6 px-5 py-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary select-none">
+              {task?.completed ? 'Completed Task' : 'Task Details'}
+            </h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 dark:text-dark-text-secondary dark:hover:text-dark-text-primary"
             >
-              <ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-1 inline-block" />
-              Reopen Task
+              <XMarkIcon className="w-5 h-5" />
             </button>
-          ) : (
-            <>
-              {task && (
-                <button
-                  onClick={handleComplete}
-                  className="px-3 py-1.5 rounded-md bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium transition-colors select-none"
-                >
-                  <CheckIcon className="w-3.5 h-3.5 mr-1 inline-block" />
-                  Mark Complete
-                </button>
-              )}
-              
-              {task && (
+          </div>
+
+          {/* Content */}
+          <Tab.Group 
+            as="div"
+            selectedIndex={activeTab === 'details' ? 0 : 1} 
+            onChange={(index) => setActiveTab(index === 0 ? 'details' : 'history')}
+            className="flex flex-col flex-1 min-h-0"
+          >
+            <Tab.List as="div" className="flex-shrink-0 flex space-x-2 border-b border-gray-200 dark:border-dark-surface-6 px-5 pt-5">
+              <Tab 
+                as="div"
+                className={({ selected }) => 
+                  `px-3 py-2 text-sm font-medium border-b-2 cursor-pointer ${
+                    selected 
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-dark-text-secondary dark:hover:text-dark-text-primary dark:hover:border-dark-surface-5'
+                  }`
+                }
+                data-tour-id="task-details-tab"
+              >
+                Details
+              </Tab>
+              <Tab 
+                as="div"
+                className={({ selected }) => 
+                  `px-3 py-2 text-sm font-medium border-b-2 cursor-pointer ${
+                    selected 
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-dark-text-secondary dark:hover:text-dark-text-primary dark:hover:border-dark-surface-5'
+                  }`
+                }
+                data-tour-id="task-history-tab"
+              >
+                History
+              </Tab>
+            </Tab.List>
+
+            <Tab.Panels className="flex-1 min-h-0 overflow-hidden">
+              <Tab.Panel className="h-full overflow-y-auto p-5">
+                <div className="space-y-3">
+                  {/* Title */}
+                  <div data-tour-id="task-title-input">
+                    <label htmlFor="title" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                      Title
+                    </label>
+                    <input
+                      id="title"
+                      type="text"
+                      name="title"
+                      value={editedTask.title || ''}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-dark-surface-6 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-surface-3 dark:text-dark-text-primary"
+                      placeholder="Task title"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div data-tour-id="task-description-input">
+                    <label htmlFor="description" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={editedTask.description || ''}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-dark-surface-6 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-surface-3 dark:text-dark-text-primary"
+                      placeholder="Task description"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Due Date */}
+                    <div data-tour-id="task-due-date-input">
+                      <label htmlFor="dueDate" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                        Due Date
+                      </label>
+                      <input
+                        id="dueDate"
+                        type="datetime-local"
+                        name="dueDate"
+                        value={formatDateForInput(editedTask.dueDate)}
+                        onChange={handleDateChange}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-dark-surface-6 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-surface-3 dark:text-dark-text-primary"
+                      />
+                    </div>
+
+                    {/* Tags */}
+                    <div data-tour-id="task-tags-input">
+                      <label htmlFor="tags" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
+                        Tags
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="tags"
+                          type="text"
+                          value={editedTask.tags ? editedTask.tags.join(', ') : ''}
+                          onChange={(e) => {
+                            const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
+                            setEditedTask(prev => ({ ...prev, tags: tagsArray }));
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-dark-surface-6 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-surface-3 dark:text-dark-text-primary"
+                          placeholder="Enter tags separated by commas"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Created and Updated dates - read only */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-500 dark:text-dark-text-secondary mt-1 select-none">
+                    <div>
+                      <span className="font-medium">Created:</span>{' '}
+                      {task?.createdAt ? format(new Date(task.createdAt), 'PPpp') : 'N/A'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Last Updated:</span>{' '}
+                      {task?.updatedAt ? format(new Date(task.updatedAt), 'PPpp') : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </Tab.Panel>
+
+              <Tab.Panel className="h-full overflow-y-auto p-5" data-tour-id="task-history-panel">
+                {taskHistory.length > 0 ? (
+                  <div className="space-y-3 pb-2">
+                    {taskHistory.map(entry => (
+                      <HistoryEntry key={entry.id || entry.timestamp} entry={entry} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-gray-500 dark:text-dark-text-secondary">No history available</p>
+                  </div>
+                )}
+              </Tab.Panel>
+            </Tab.Panels>
+          </Tab.Group>
+
+          {/* Footer with action buttons */}
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-dark-surface-6 px-5 py-3 flex flex-wrap gap-2 justify-end select-none">
+            {task && (
+              <>
+                {task.completed ? (
+                  <button
+                    onClick={handleReopen}
+                    className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
+                    data-tour-id="task-reopen-button"
+                  >
+                    <ArrowUturnLeftIcon className="w-3.5 h-3.5 mr-1 inline-block" />
+                    Reopen Task
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleComplete}
+                    className="px-3 py-1.5 rounded-md bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium transition-colors select-none"
+                    data-tour-id="task-complete-button"
+                  >
+                    <CheckIcon className="w-3.5 h-3.5 mr-1 inline-block" />
+                    Mark Complete
+                  </button>
+                )}
+                
                 <button
                   onClick={handleDelete}
                   className="px-3 py-1.5 rounded-md bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-medium transition-colors select-none"
+                  data-tour-id="task-delete-button"
                 >
                   <TrashIcon className="w-3.5 h-3.5 mr-1 inline-block" />
                   Delete
                 </button>
-              )}
-            </>
-          )}
-          
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
-          >
-            Cancel
-          </button>
-          
-          <button
-            onClick={handleSave}
-            className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-xs font-medium transition-colors select-none"
-          >
-            {task ? 'Save Changes' : 'Create Task'}
-          </button>
+              </>
+            )}
+            
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
+              data-tour-id="task-cancel-button"
+            >
+              Cancel
+            </button>
+            
+            <button
+              onClick={handleSave}
+              className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-xs font-medium transition-colors select-none"
+              data-tour-id="task-save-button"
+            >
+              {task ? 'Save Changes' : 'Create Task'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 } 

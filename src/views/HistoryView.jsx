@@ -176,7 +176,7 @@ export default function HistoryView() {
     <div className="h-full p-3 sm:p-4 overflow-auto dark:bg-dark-background">
       <div className="max-w-6xl mx-auto w-full">
         {/* App bar with Material Design styling */}
-        <div className="flex justify-between items-center mb-4 pb-3 border-b border-surface-200 dark:border-dark-surface-6 sticky top-0 z-10 bg-white/90 dark:bg-dark-background/90 backdrop-blur-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-surface-200 dark:border-dark-surface-6 bg-white/90 dark:bg-dark-background/90 backdrop-blur-sm">
           <h1 className="text-2xl font-medium text-surface-800 dark:text-dark-text-primary select-none">
             Task History
           </h1>

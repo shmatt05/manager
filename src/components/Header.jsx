@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { config } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import clsx from 'clsx';
+import TourButton from './Tour/TourButton';
 
 function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,6 +43,11 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) 
           </div>
           
           <div className="flex items-center">
+            {/* Tour Button */}
+            <TourButton 
+              className="mr-2 h-[26px] px-2 text-[11px] bg-gray-100 hover:bg-white dark:bg-dark-surface-4 dark:hover:bg-dark-surface-3 text-gray-700 hover:text-gray-900 dark:text-dark-text-primary dark:hover:text-dark-text-primary rounded flex items-center transition-all duration-200 hover:shadow-sm group select-none"
+            />
+            
             {/* Send All to Backlog button - smaller to match user icon */}
             {activeTab === 'matrix' && onSendAllToBacklog && (
               <button

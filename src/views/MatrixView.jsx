@@ -18,6 +18,7 @@ import DeleteDialog from '../components/DeleteDialog';
 import { auth } from '../firebase';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useTour } from '../contexts/TourContext';
 
 const isFirebaseEnabled = import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true';
 
@@ -195,6 +196,7 @@ export default function MatrixView({
   onTaskSave,
   setSendAllToBacklogFn
 }) {
+  const { active } = useTour();
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -203,6 +205,7 @@ export default function MatrixView({
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [localTasks, setLocalTasks] = useState(tasks);
+  const [demoData, setDemoData] = useState(null);
   // Ripple effect for buttons - moved up to follow React hooks rules
   const [ripplePos, setRipplePos] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
@@ -366,7 +369,9 @@ export default function MatrixView({
       'backlog': []
     };
 
-    localTasks
+    const tasksToSort = active && demoData ? demoData.tasks : localTasks;
+
+    tasksToSort
       .filter(task => task.status !== 'completed')
       .forEach(task => {
         if (task.scheduledFor === 'tomorrow') {
@@ -374,6 +379,18 @@ export default function MatrixView({
           return;
         }
 
+        // For demo data, use the quadrant property directly
+        if (active && demoData) {
+          const quadrant = task.quadrant;
+          if (quadrant === 'q1') sorted['urgent-important'].push(task);
+          else if (quadrant === 'q2') sorted['not-urgent-important'].push(task);
+          else if (quadrant === 'q3') sorted['urgent-not-important'].push(task);
+          else if (quadrant === 'q4') sorted['not-urgent-not-important'].push(task);
+          else if (quadrant === 'backlog') sorted['backlog'].push(task);
+          return;
+        }
+
+        // For regular tasks, use priority and tags
         const isUrgent = task.priority <= 2;
         const isImportant = task.tags.includes('important');
         
@@ -387,7 +404,7 @@ export default function MatrixView({
       });
 
     return sorted;
-  }, [localTasks]);
+  }, [localTasks, active, demoData]);
 
   const handleDragStart = useCallback((event) => {
     const { active } = event;
@@ -811,6 +828,38 @@ export default function MatrixView({
     }
   }, []); // Empty dependency array - only run once on mount
 
+  // Listen for tour events
+  useEffect(() => {
+    const handleTourStart = (e) => {
+      setDemoData(e.detail);
+    };
+    
+    const handleTourEnd = () => {
+      setDemoData(null);
+    };
+    
+    window.addEventListener('tour:start', handleTourStart);
+    window.addEventListener('tour:end', handleTourEnd);
+    
+    return () => {
+      window.removeEventListener('tour:start', handleTourStart);
+      window.removeEventListener('tour:end', handleTourEnd);
+    };
+  }, []);
+  
+  // Use demo data during tour
+  const displayTasks = useMemo(() => {
+    if (active && demoData) {
+      return demoData.tasks;
+    }
+    return tasks;
+  }, [active, demoData, tasks]);
+  
+  // Update localTasks when displayTasks changes
+  useEffect(() => {
+    setLocalTasks(displayTasks);
+  }, [displayTasks]);
+
   if (loading) {
     return <div>Loading tickets...</div>;
   }
@@ -826,9 +875,9 @@ export default function MatrixView({
         {/* Center the content with margins on both sides */}
         <div className="max-w-6xl mx-auto w-full flex flex-col">
           {/* Main matrix container - use grid for rows and columns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2" data-tour-id="matrix-grid">
             {/* Top row - first quadrant */}
-            <div className="h-full">
+            <div className="h-full" data-tour-id="urgent-important-quadrant">
               <Quadrant
                 id="urgent-important"
                 title={QUADRANTS['urgent-important'].title}
@@ -847,7 +896,7 @@ export default function MatrixView({
             </div>
             
             {/* Top row - second quadrant */}
-            <div className="h-full">
+            <div className="h-full" data-tour-id="not-urgent-important-quadrant">
               <Quadrant
                 id="not-urgent-important"
                 title={QUADRANTS['not-urgent-important'].title}
@@ -866,7 +915,7 @@ export default function MatrixView({
             </div>
             
             {/* Bottom row - third quadrant */}
-            <div className="h-full">
+            <div className="h-full" data-tour-id="urgent-not-important-quadrant">
               <Quadrant
                 id="urgent-not-important"
                 title={QUADRANTS['urgent-not-important'].title}
@@ -885,7 +934,7 @@ export default function MatrixView({
             </div>
             
             {/* Bottom row - fourth quadrant */}
-            <div className="h-full">
+            <div className="h-full" data-tour-id="not-urgent-not-important-quadrant">
               <Quadrant
                 id="not-urgent-not-important"
                 title={QUADRANTS['not-urgent-not-important'].title}
@@ -905,7 +954,7 @@ export default function MatrixView({
           </div>
           
           {/* Backlog section below the matrix */}
-          <div className="mt-2">
+          <div className="mt-2" data-tour-id="backlog-section">
             <Quadrant
               id="backlog"
               title={QUADRANTS['backlog'].title}
@@ -937,7 +986,10 @@ export default function MatrixView({
           })
         }}>
           {activeId ? (
-            <div style={{transform: 'scale(1.02)', transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)'}}>
+            <div 
+              style={{transform: 'scale(1.02)', transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)'}}
+              data-tour-id="draggable-task"
+            >
               <TaskCard 
                 task={tasks.find(t => t.id === activeId)}
                 className="shadow-md dark:shadow-lg border border-primary-300 dark:border-primary-600/40"

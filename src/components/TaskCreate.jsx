@@ -150,6 +150,7 @@ const TaskCreate = ({ onCreateTask }) => {
         disabled={!taskText.trim()}
         className="px-3 py-1 text-white text-sm bg-blue-500 dark:bg-blue-600 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700
                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        data-tour-id="add-task-button"
       >
         Add
       </button>

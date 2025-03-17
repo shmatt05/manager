@@ -254,21 +254,31 @@ export default function TaskCard({
       `}
       onClick={() => onEdit(task)}
       onContextMenu={handleContextMenu}
+      data-tour-id="task-card"
     >
       <div className="flex items-start gap-1">
         {/* Priority indicator */}
-        <div className={`w-1 self-stretch rounded-sm ${priorityColors[priority]?.accent || 'bg-surface-200'} ${priorityColors[priority]?.darkAccent || 'dark:bg-dark-surface-6'}`}></div>
+        <div 
+          className={`w-1 self-stretch rounded-sm ${priorityColors[priority]?.accent || 'bg-surface-200'} ${priorityColors[priority]?.darkAccent || 'dark:bg-dark-surface-6'}`}
+          data-tour-id="task-priority-indicator"
+        ></div>
         
         <div className="flex-1 min-w-0">
           {/* Title */}
           <div className="flex items-start justify-between gap-1">
-            <h3 className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}>
+            <h3 
+              className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}
+              data-tour-id="task-title"
+            >
               {title}
             </h3>
             
             {/* Due date */}
             {dueDate && (
-              <div className="flex items-center text-xs whitespace-nowrap select-none">
+              <div 
+                className="flex items-center text-xs whitespace-nowrap select-none"
+                data-tour-id="task-due-date"
+              >
                 <ClockIcon className="w-3 h-3 mr-0.5 flex-shrink-0" />
                 <span className={`${isPast(parseISO(dueDate)) && !isCompleted ? 'text-error' : 'text-surface-500 dark:text-dark-text-secondary'}`}>
                   {format(parseISO(dueDate), 'h:mm a')}
@@ -279,7 +289,10 @@ export default function TaskCard({
           
           {/* Tags */}
           {tags && tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
+            <div 
+              className="flex flex-wrap gap-1 mt-1"
+              data-tour-id="task-tags"
+            >
               {tags.slice(0, 3).map(tag => (
                 <span 
                   key={tag} 
@@ -328,11 +341,9 @@ export default function TaskCard({
       {menuOpen && createPortal(
         <div 
           ref={menuRef}
-          className="fixed z-50 bg-white dark:bg-dark-surface-2 rounded-md shadow-medium border border-surface-200 dark:border-dark-surface-6 overflow-hidden min-w-[160px] select-none"
-          style={{ 
-            left: `${menuPosition.x}px`, 
-            top: `${menuPosition.y}px` 
-          }}
+          className="fixed z-50 bg-white dark:bg-dark-surface-2 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-dark-surface-6 w-44"
+          style={{ top: menuPosition.y, left: menuPosition.x }}
+          data-tour-id="context-menu"
         >
           <div className="py-1">
             <button 
