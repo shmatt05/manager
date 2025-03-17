@@ -81,19 +81,30 @@ const TaskInputDemo = () => {
   const clickButton = useCallback((button) => {
     if (!button) return;
     
-    // Create a click event (this will both visually click and trigger React handlers)
-    const clickEvent = new MouseEvent('click', {
-      view: window,
-      bubbles: true,
-      cancelable: true
-    });
-    
     // Show click animation first
     setShowClick(true);
     
-    // Then dispatch click event
+    // Then simulate creating a task programmatically
     setTimeout(() => {
-      button.dispatchEvent(clickEvent);
+      // Create a custom event to add a task in the demo board
+      const demoTask = {
+        id: 'tour-demo-task-' + Date.now(),
+        title: 'Complete project proposal',
+        description: '#do @tomorrow',
+        tags: ['demo', 'tour', 'do'],
+        priority: 1,
+        status: 'todo',
+        quadrant: 'q1', // Do quadrant
+        dueDate: new Date(Date.now() + 86400000).toISOString(), // tomorrow
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Dispatch custom event to add task
+      const addTaskEvent = new CustomEvent('tour:add-task', {
+        detail: { task: demoTask }
+      });
+      document.dispatchEvent(addTaskEvent);
       
       // Wait a bit before hiding cursor to make sure we see the result
       setTimeout(() => setIsComplete(true), 1000);
@@ -108,6 +119,19 @@ const TaskInputDemo = () => {
         // If elements not found, retry
         setTimeout(initialize, 100);
         return;
+      }
+      
+      // Disable actual input field to prevent user interaction
+      if (elements.inputField) {
+        elements.inputField.disabled = true;
+        // Remove data-tour-interaction to make it non-interactive
+        elements.inputField.removeAttribute('data-tour-interaction');
+      }
+      
+      // Disable button to prevent clicking
+      if (elements.addButton) {
+        elements.addButton.disabled = true;
+        elements.addButton.removeAttribute('data-tour-interaction');
       }
       
       const { typingPosition } = elements;
@@ -137,8 +161,20 @@ const TaskInputDemo = () => {
       // Reset form if demo is interrupted
       const inputField = document.querySelector('form input[type="text"]');
       if (inputField) {
+        // Reset value
         inputField.value = '';
         inputField.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // Re-enable the input field
+        inputField.disabled = false;
+        inputField.setAttribute('data-tour-interaction', 'enabled');
+      }
+      
+      // Re-enable button
+      const addButton = document.querySelector('[data-tour-id="add-task-button"]');
+      if (addButton) {
+        addButton.disabled = false;
+        addButton.setAttribute('data-tour-interaction', 'enabled');
       }
     };
   }, [findElements, typeText, demoText]);
