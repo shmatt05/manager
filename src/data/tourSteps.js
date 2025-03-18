@@ -75,8 +75,8 @@ const tourSteps = [
       <p class="italic text-gray-600 dark:text-gray-400">Watch as we add a task with the #do hashtag to place it in the "Do" quadrant.</p>
     `,
     target: 'form input[type="text"]',
-    position: 'bottom',
-    dialogOffset: { x: 0, y: 20 },
+    position: 'top-right',
+    dialogPosition: { top: '20px', left: '20px', right: 'auto', transform: 'none' },
     blockBackground: false,
     disableSpotlight: true,
     component: TaskInputDemo

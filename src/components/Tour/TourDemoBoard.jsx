@@ -42,8 +42,8 @@ const DEMO_TASKS = [
     id: 'demo-q1-1',
     title: 'Critical System Outage',
     description: 'Investigate and resolve the payment processing system outage affecting multiple customers. High priority incident requiring immediate attention.',
-    tags: ['critical', 'technical', 'customer-impact'],
-    priority: 'high',
+    tags: ['critical', 'technical', 'customer-impact', 'important', 'do'],
+    priority: 1,
     status: 'todo',
     quadrant: 'q1',
     dueDate: new Date().toISOString(),
@@ -61,8 +61,8 @@ const DEMO_TASKS = [
     id: 'demo-q1-2',
     title: 'Board Meeting Presentation',
     description: 'Finalize Q4 financial presentation for tomorrow\'s board meeting. Need executive sign-off by EOD.',
-    tags: ['presentation', 'finance', 'deadline'],
-    priority: 'high',
+    tags: ['presentation', 'finance', 'deadline', 'important', 'do'],
+    priority: 1,
     status: 'todo',
     quadrant: 'q1',
     dueDate: daysFromNow(1),
@@ -80,8 +80,8 @@ const DEMO_TASKS = [
     id: 'demo-q1-3',
     title: 'Client Contract Deadline',
     description: 'Review and sign-off on the Enterprise client contract renewal. Legal review pending.',
-    tags: ['client', 'contract', 'urgent'],
-    priority: 'high',
+    tags: ['client', 'contract', 'urgent', 'important', 'do'],
+    priority: 2,
     status: 'todo',
     quadrant: 'q1',
     dueDate: daysFromNow(2),
@@ -385,20 +385,24 @@ const ALL_DEMO_TASKS = [...DEMO_TASKS, ...DEMO_COMPLETED_TASKS];
 const TourDemoBoard = () => {
   const { active } = useTour();
   const [originalState, setOriginalState] = useState(null);
+  const [demoTasks, setDemoTasks] = useState(DEMO_TASKS);
   
   // Effect to handle tour activation and deactivation
   useEffect(() => {
     if (!active) {
       // If we have original state and tour is ending, dispatch event to restore it
       if (originalState) {
-        console.log('Tour ended, restoring original state');
+        console.log('TourDemoBoard: Tour ended, restoring original state');
         window.dispatchEvent(new CustomEvent('tour:end', { detail: originalState }));
         setOriginalState(null);
       }
       return;
     }
     
-    console.log('Tour started, setting up demo board');
+    console.log('TourDemoBoard: Tour started, setting up demo board', {
+      demoTasksCount: demoTasks.length,
+      completedTasksCount: DEMO_COMPLETED_TASKS.length
+    });
     
     // Save current state before starting tour
     const currentState = {
@@ -413,12 +417,54 @@ const TourDemoBoard = () => {
     // Save original state
     setOriginalState(currentState);
     
+    // Add data-tour-id attributes to the board elements to make them easier to find
+    setTimeout(() => {
+      // Find the matrix board
+      const matrixBoard = document.querySelector('.matrix-board, .grid-container');
+      if (matrixBoard) {
+        matrixBoard.setAttribute('data-tour-id', 'demo-board');
+        
+        // Find and mark the quadrants
+        const quadrants = matrixBoard.querySelectorAll('.quadrant, .grid-item');
+        if (quadrants.length >= 4) {
+          // Assuming quadrants are in order: Do, Schedule, Delegate, Eliminate
+          quadrants[0]?.setAttribute('data-tour-id', 'urgent-important-quadrant');
+          quadrants[1]?.setAttribute('data-tour-id', 'not-urgent-important-quadrant');
+          quadrants[2]?.setAttribute('data-tour-id', 'urgent-not-important-quadrant');
+          quadrants[3]?.setAttribute('data-tour-id', 'not-urgent-not-important-quadrant');
+        }
+      }
+    }, 500);
+    
+    // Log the demo tasks that will be dispatched
+    console.log('TourDemoBoard: Dispatching tour:start event with tasks', {
+      q1Tasks: demoTasks.filter(t => t.quadrant === 'q1').length,
+      q2Tasks: demoTasks.filter(t => t.quadrant === 'q2').length,
+      q3Tasks: demoTasks.filter(t => t.quadrant === 'q3').length,
+      q4Tasks: demoTasks.filter(t => t.quadrant === 'q4').length,
+      backlogTasks: demoTasks.filter(t => t.quadrant === 'backlog').length
+    });
+    
+    // Make sure each task has a proper ID for the draggable functionality
+    const tasksWithIds = demoTasks.map(task => {
+      // If task has no quadrant, default to "q1" (Do)
+      const updatedTask = { ...task };
+      if (!updatedTask.quadrant) {
+        updatedTask.quadrant = 'q1';
+      }
+      // Ensure each task has an id
+      if (!updatedTask.id) {
+        updatedTask.id = `demo-${Math.random().toString(36).substring(2, 11)}`;
+      }
+      return updatedTask;
+    });
+    
     // Dispatch event to show demo data
     window.dispatchEvent(new CustomEvent('tour:start', {
       detail: {
-        tasks: DEMO_TASKS,
+        tasks: tasksWithIds,
         completedTasks: DEMO_COMPLETED_TASKS,
-        taskHistory: [...DEMO_TASKS, ...DEMO_COMPLETED_TASKS].flatMap(task => {
+        taskHistory: [...tasksWithIds, ...DEMO_COMPLETED_TASKS].flatMap(task => {
           if (!task.history) return [];
           return task.history.map(entry => ({
             taskId: task.id,
@@ -429,15 +475,112 @@ const TourDemoBoard = () => {
       }
     }));
     
+    // Handler for adding a task during the tour
+    const handleAddTask = (event) => {
+      const newTask = event.detail.task;
+      console.log('Adding task to demo board:', newTask);
+      
+      // Ensure the task has required properties
+      const taskWithDefaults = {
+        ...newTask,
+        id: newTask.id || `demo-${Math.random().toString(36).substring(2, 11)}`,
+        quadrant: newTask.quadrant || 'q1', // Default to Do quadrant
+        priority: newTask.priority || 1, // Default to high priority
+      };
+      
+      // Add the task to the demo tasks
+      const updatedTasks = [...demoTasks, taskWithDefaults];
+      setDemoTasks(updatedTasks);
+      
+      // Update the demo board with the new task
+      window.dispatchEvent(new CustomEvent('tour:update-tasks', {
+        detail: {
+          tasks: updatedTasks,
+          completedTasks: DEMO_COMPLETED_TASKS,
+          taskHistory: [...updatedTasks, ...DEMO_COMPLETED_TASKS].flatMap(task => {
+            if (!task.history) return [];
+            return task.history.map(entry => ({
+              taskId: task.id,
+              taskTitle: task.title,
+              ...entry
+            }));
+          })
+        }
+      }));
+      
+      // After adding task, make sure the task card gets properly tagged for later steps
+      setTimeout(() => {
+        const taskCards = document.querySelectorAll('.task-card');
+        if (taskCards.length > 0) {
+          // Tag the most recently added task (likely the last one)
+          const newTaskCard = taskCards[taskCards.length - 1];
+          newTaskCard.setAttribute('data-tour-id', 'draggable-task');
+          console.log('Tagged new task with data-tour-id:', newTaskCard);
+        }
+      }, 500);
+    };
+    
+    // Handler for updating task quadrant during tour
+    const handleUpdateTaskQuadrant = (event) => {
+      if (!event.detail || !event.detail.taskId || !event.detail.newQuadrant) {
+        console.error('Invalid task update event:', event);
+        return;
+      }
+      
+      const { taskId, newQuadrant } = event.detail;
+      console.log('Updating task quadrant:', taskId, 'to', newQuadrant);
+      
+      // Find and update the task
+      const updatedTasks = demoTasks.map(task => {
+        if (task.id === taskId || task.id.includes(taskId)) {
+          return {
+            ...task,
+            quadrant: newQuadrant,
+            // Update priority based on new quadrant
+            priority: newQuadrant === 'q1' ? 1 : 
+                     newQuadrant === 'q2' ? 2 :
+                     newQuadrant === 'q3' ? 3 : 4
+          };
+        }
+        return task;
+      });
+      
+      // Update tasks state
+      setDemoTasks(updatedTasks);
+      
+      // Update the demo board
+      window.dispatchEvent(new CustomEvent('tour:update-tasks', {
+        detail: {
+          tasks: updatedTasks,
+          completedTasks: DEMO_COMPLETED_TASKS,
+          taskHistory: [...updatedTasks, ...DEMO_COMPLETED_TASKS].flatMap(task => {
+            if (!task.history) return [];
+            return task.history.map(entry => ({
+              taskId: task.id,
+              taskTitle: task.title,
+              ...entry
+            }));
+          })
+        }
+      }));
+    };
+    
+    // Add event listeners
+    document.addEventListener('tour:add-task', handleAddTask);
+    document.addEventListener('tour:update-task-quadrant', handleUpdateTaskQuadrant);
+    
     // Cleanup function
     return () => {
+      document.removeEventListener('tour:add-task', handleAddTask);
+      document.removeEventListener('tour:update-task-quadrant', handleUpdateTaskQuadrant);
+      
       if (originalState) {
         console.log('Component unmounting, restoring original state');
         window.dispatchEvent(new CustomEvent('tour:end', { detail: originalState }));
         setOriginalState(null);
       }
     };
-  }, [active]);
+  }, [active, demoTasks]);
   
   // Component doesn't render anything
   return null;

@@ -53,35 +53,20 @@ const TaskInputDemo = () => {
     // Create and dispatch an input event to update the React state
     const inputEvent = new Event('input', { bubbles: true });
     
-    let charIndex = 0;
+    // Set up quick typing - put it all in at once for speed
+    inputField.value = text;
+    inputField.dispatchEvent(inputEvent);
+    setTypedText(text);
     
-    const typeChar = () => {
-      if (charIndex < text.length) {
-        // Add one character
-        const currentText = text.substring(0, charIndex + 1);
-        inputField.value = currentText;
-        setTypedText(currentText);
-        
-        // Dispatch event to React
-        inputField.dispatchEvent(inputEvent);
-        
-        // Move to next character
-        charIndex++;
-        setTimeout(typeChar, 100);
-      } else {
-        // Typing complete
-        setTimeout(() => setStep(1), 800);
-      }
-    };
-    
-    setTimeout(typeChar, 500);
+    // Move to next step quickly
+    setTimeout(() => setStep(1), 400);
   }, []);
   
   // Click button
   const clickButton = useCallback((button) => {
     if (!button) return;
     
-    // Show click animation first
+    // Show click animation
     setShowClick(true);
     
     // Then simulate creating a task programmatically
@@ -106,8 +91,8 @@ const TaskInputDemo = () => {
       });
       document.dispatchEvent(addTaskEvent);
       
-      // Wait a bit before hiding cursor to make sure we see the result
-      setTimeout(() => setIsComplete(true), 1000);
+      // Complete much faster
+      setTimeout(() => setIsComplete(true), 400);
     }, 300);
   }, []);
   
@@ -119,6 +104,12 @@ const TaskInputDemo = () => {
         // If elements not found, retry
         setTimeout(initialize, 100);
         return;
+      }
+      
+      // Highlight the input form
+      const form = document.querySelector('form');
+      if (form) {
+        form.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.5)';
       }
       
       // Disable actual input field to prevent user interaction
@@ -136,9 +127,9 @@ const TaskInputDemo = () => {
       
       const { typingPosition } = elements;
       
-      // Set initial cursor position (center of screen)
-      const startX = window.innerWidth / 2;
-      const startY = window.innerHeight / 2;
+      // Start cursor closer to input (faster)
+      const startX = window.innerWidth / 3;
+      const startY = typingPosition.y - 50;
       
       setCursorPosition({ x: startX, y: startY });
       
@@ -146,15 +137,15 @@ const TaskInputDemo = () => {
       setTimeout(() => {
         setTargetPosition(typingPosition);
         
-        // Begin typing after cursor arrives
+        // Begin typing immediately after cursor arrives
         setTimeout(() => {
           typeText(demoText, elements.inputField);
-        }, 1000);
-      }, 500);
+        }, 300);
+      }, 200);
     };
     
-    // Start with a delay
-    setTimeout(initialize, 800);
+    // Start immediately
+    setTimeout(initialize, 200);
     
     // Cleanup
     return () => {
@@ -176,6 +167,12 @@ const TaskInputDemo = () => {
         addButton.disabled = false;
         addButton.setAttribute('data-tour-interaction', 'enabled');
       }
+      
+      // Remove form highlight
+      const form = document.querySelector('form');
+      if (form) {
+        form.style.boxShadow = '';
+      }
     };
   }, [findElements, typeText, demoText]);
   
@@ -186,10 +183,10 @@ const TaskInputDemo = () => {
       if (elements) {
         setTargetPosition(elements.buttonPosition);
         
-        // Click button after cursor arrives
+        // Click button after cursor arrives - much faster
         setTimeout(() => {
           clickButton(elements.addButton);
-        }, 1000);
+        }, 300);
       }
     }
   }, [step, findElements, clickButton]);
@@ -198,7 +195,7 @@ const TaskInputDemo = () => {
     <TourCursor 
       fromPosition={cursorPosition} 
       toPosition={targetPosition}
-      duration={1000}
+      duration={300} // Much faster animation
       showClick={showClick}
       visible={!isComplete}
     />

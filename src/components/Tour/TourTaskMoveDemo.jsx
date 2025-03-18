@@ -3,24 +3,22 @@ import TourCursor from './TourCursor';
 
 /**
  * TourTaskMoveDemo component
- * A realistic task card drag-and-drop demonstration
- * Uses cursor animation and task card movement
+ * Simulates drag and drop by controlling an actual task card in the matrix
  */
 const TourTaskMoveDemo = () => {
   const [step, setStep] = useState(0);
-  const [animationComplete, setAnimationComplete] = useState(false);
+  const [demoTask, setDemoTask] = useState(null);
+  const [sourceQuadrant, setSourceQuadrant] = useState(null);
+  const [targetQuadrant, setTargetQuadrant] = useState(null);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
-  const [cardPosition, setCardPosition] = useState({ x: 0, y: 0 });
   const [targetPosition, setTargetPosition] = useState({ x: 0, y: 0 });
-  const [grabbing, setGrabbing] = useState(false);
-  const [quadrantPositions, setQuadrantPositions] = useState({
-    q1: { x: 0, y: 0, width: 0, height: 0 }, // Do
-    q3: { x: 0, y: 0, width: 0, height: 0 }  // Delegate
-  });
+  const [showClick, setShowClick] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [animationComplete, setAnimationComplete] = useState(false);
   
-  const animationRef = useRef(null);
+  const timeoutRef = useRef(null);
   
-  // Find position of quadrants
+  // Find task and quadrants
   useEffect(() => {
     // Find the "Do" (urgent-important) quadrant
     const doQuadrant = document.querySelector('[data-tour-id="urgent-important-quadrant"]');
@@ -28,153 +26,256 @@ const TourTaskMoveDemo = () => {
     const delegateQuadrant = document.querySelector('[data-tour-id="urgent-not-important-quadrant"]');
     
     if (doQuadrant && delegateQuadrant) {
-      const doRect = doQuadrant.getBoundingClientRect();
-      const delegateRect = delegateQuadrant.getBoundingClientRect();
-      
-      setQuadrantPositions({
-        q1: {
-          x: doRect.left + (doRect.width * 0.2),  // 20% into the quadrant
-          y: doRect.top + (doRect.height * 0.3),
-          width: doRect.width,
-          height: doRect.height
-        },
-        q3: {
-          x: delegateRect.left + (delegateRect.width * 0.2),
-          y: delegateRect.top + (delegateRect.height * 0.3),
-          width: delegateRect.width,
-          height: delegateRect.height
-        }
+      // Get positions for later
+      setSourceQuadrant({
+        element: doQuadrant,
+        rect: doQuadrant.getBoundingClientRect()
       });
       
-      // Initial cursor position (center of window)
-      setCursorPosition({ 
-        x: window.innerWidth / 2, 
-        y: window.innerHeight / 2 
+      setTargetQuadrant({
+        element: delegateQuadrant,
+        rect: delegateQuadrant.getBoundingClientRect()
       });
-    }
-  }, []);
-  
-  // Run animation sequence
-  useEffect(() => {
-    // Make sure quadrant positions are loaded
-    if (quadrantPositions.q1.width === 0) return;
-    
-    const startAnimation = () => {
-      // Step 0: Move cursor to first card
-      if (step === 0) {
-        setTargetPosition(quadrantPositions.q1);
-        setTimeout(() => setStep(1), 1500);
-      }
-      // Step 1: Click (grab) card
-      else if (step === 1) {
-        setGrabbing(true);
-        setCardPosition(quadrantPositions.q1);
-        setTimeout(() => setStep(2), 500);
-      }
-      // Step 2: Move card to delegate quadrant
-      else if (step === 2) {
-        setTargetPosition(quadrantPositions.q3);
-        setTimeout(() => setStep(3), 2000);
-      }
-      // Step 3: Release card
-      else if (step === 3) {
-        setGrabbing(false);
-        setCardPosition(quadrantPositions.q3);
-        setTimeout(() => {
-          setAnimationComplete(true);
+      
+      // Find a task in the Do quadrant
+      const tasks = doQuadrant.querySelectorAll('.task-card');
+      if (tasks.length > 0) {
+        // Use the first task we find
+        const task = tasks[0];
+        setDemoTask({
+          element: task,
+          rect: task.getBoundingClientRect()
+        });
+        
+        // Initial cursor position (slightly above the task)
+        setCursorPosition({ 
+          x: window.innerWidth / 2, 
+          y: window.innerHeight / 3 
+        });
+      } else {
+        // Create a fake event to add a task to the demo board
+        const demoTaskEvent = new CustomEvent('tour:add-task', {
+          detail: { 
+            task: {
+              id: 'tour-demo-task-' + Date.now(),
+              title: 'Board Meeting Presentation',
+              description: 'Prepare slides for tomorrow',
+              tags: ['important', 'demo', 'tour'],
+              priority: 1,
+              status: 'todo',
+              quadrant: 'q1', // Do quadrant
+              dueDate: new Date(Date.now() + 86400000).toISOString(), // tomorrow
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          }
+        });
+        document.dispatchEvent(demoTaskEvent);
+        
+        // Set a timeout to find the task after it's been created
+        timeoutRef.current = setTimeout(() => {
+          const newTasks = doQuadrant.querySelectorAll('.task-card');
+          if (newTasks.length > 0) {
+            const newTask = newTasks[0];
+            setDemoTask({
+              element: newTask,
+              rect: newTask.getBoundingClientRect()
+            });
+          }
         }, 500);
       }
-    };
-    
-    // Start animation after a delay
-    const timeout = setTimeout(startAnimation, 500);
-    
-    return () => clearTimeout(timeout);
-  }, [step, quadrantPositions]);
-  
-  // Update card position to follow cursor
-  useEffect(() => {
-    // Only update card position when grabbing
-    if (grabbing && step > 1) {
-      // Card follows cursor with a slight offset
-      setCardPosition({
-        x: cursorPosition.x + 10,
-        y: cursorPosition.y + 10
-      });
     }
-  }, [cursorPosition, grabbing, step]);
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // Run the animation sequence
+  useEffect(() => {
+    // If we don't have a task or quadrants yet, wait
+    if (!demoTask || !sourceQuadrant || !targetQuadrant) return;
+    
+    // Step 0: Move cursor to the task
+    if (step === 0) {
+      // Calculate position at center of task
+      const taskCenter = {
+        x: demoTask.rect.left + demoTask.rect.width / 2,
+        y: demoTask.rect.top + demoTask.rect.height / 2
+      };
+      
+      setTargetPosition(taskCenter);
+      timeoutRef.current = setTimeout(() => setStep(1), 800);
+    }
+    // Step 1: "Grab" the task
+    else if (step === 1) {
+      setShowClick(true);
+      setIsDragging(true);
+      
+      // Highlight source quadrant
+      sourceQuadrant.element.style.backgroundColor = 'rgba(79, 209, 197, 0.05)';
+      sourceQuadrant.element.style.transition = 'background-color 0.5s ease';
+      
+      // Highlight target quadrant
+      targetQuadrant.element.style.backgroundColor = 'rgba(79, 209, 197, 0.1)';
+      targetQuadrant.element.style.transition = 'background-color 0.5s ease';
+      
+      // Find the task card after clicking to get latest position
+      const updatedTask = document.querySelector(`#${demoTask.element.id}`);
+      if (updatedTask) {
+        // Create overlay element to make it look like the task is being dragged
+        const overlay = document.createElement('div');
+        overlay.id = 'tour-task-overlay';
+        overlay.className = demoTask.element.className;
+        overlay.style.position = 'fixed';
+        overlay.style.zIndex = '9999';
+        overlay.style.left = `${demoTask.rect.left}px`;
+        overlay.style.top = `${demoTask.rect.top}px`;
+        overlay.style.width = `${demoTask.rect.width}px`;
+        overlay.style.height = `${demoTask.rect.height}px`;
+        overlay.style.pointerEvents = 'none';
+        overlay.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.2)';
+        overlay.style.transform = 'scale(1.05)';
+        overlay.style.transition = 'left 1.5s ease, top 1.5s ease';
+        overlay.innerHTML = updatedTask.innerHTML;
+        document.body.appendChild(overlay);
+        
+        // Hide the actual task while "dragging"
+        demoTask.element.style.opacity = '0';
+        demoTask.element.style.transition = 'opacity 0.3s ease';
+      }
+      
+      timeoutRef.current = setTimeout(() => setStep(2), 800);
+    }
+    // Step 2: Move to the target quadrant
+    else if (step === 2) {
+      // Move to target quadrant
+      const targetCenter = {
+        x: targetQuadrant.rect.left + targetQuadrant.rect.width / 2,
+        y: targetQuadrant.rect.top + targetQuadrant.rect.height / 2
+      };
+      setTargetPosition(targetCenter);
+      
+      // Move the overlay to target quadrant
+      const overlay = document.getElementById('tour-task-overlay');
+      if (overlay) {
+        overlay.style.left = `${targetCenter.x - demoTask.rect.width / 2}px`;
+        overlay.style.top = `${targetCenter.y - demoTask.rect.height / 2}px`;
+      }
+      
+      timeoutRef.current = setTimeout(() => setStep(3), 1500);
+    }
+    // Step 3: "Drop" the task and finish
+    else if (step === 3) {
+      setShowClick(true);
+      setIsDragging(false);
+      
+      // Remove highlight from quadrants
+      sourceQuadrant.element.style.backgroundColor = '';
+      targetQuadrant.element.style.backgroundColor = '';
+      
+      // Remove the overlay
+      const overlay = document.getElementById('tour-task-overlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+          if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+          }
+        }, 300);
+      }
+      
+      // Simulate the task moving to the delegate quadrant by creating a custom event
+      const moveTaskEvent = new CustomEvent('tour:update-task-quadrant', {
+        detail: {
+          taskId: demoTask.element.id.replace('task-', ''),
+          newQuadrant: 'q3' // Delegate quadrant
+        }
+      });
+      document.dispatchEvent(moveTaskEvent);
+      
+      // Show the actual task again (it will now be in the delegate quadrant)
+      demoTask.element.style.opacity = '1';
+      
+      timeoutRef.current = setTimeout(() => {
+        setAnimationComplete(true);
+      }, 1000);
+    }
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [step, demoTask, sourceQuadrant, targetQuadrant]);
+  
+  // Update cursor position when target changes
+  useEffect(() => {
+    return () => {
+      // Cleanup if component unmounts
+      const overlay = document.getElementById('tour-task-overlay');
+      if (overlay && overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+      
+      // Reset quadrant styles
+      if (sourceQuadrant && sourceQuadrant.element) {
+        sourceQuadrant.element.style.backgroundColor = '';
+        sourceQuadrant.element.style.transition = '';
+      }
+      
+      if (targetQuadrant && targetQuadrant.element) {
+        targetQuadrant.element.style.backgroundColor = '';
+        targetQuadrant.element.style.transition = '';
+      }
+      
+      // Reset task opacity
+      if (demoTask && demoTask.element) {
+        demoTask.element.style.opacity = '1';
+        demoTask.element.style.transition = '';
+      }
+      
+      // Clear any pending timeouts
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [sourceQuadrant, targetQuadrant, demoTask]);
   
   return (
-    <div className="fixed inset-0 pointer-events-none z-[9000]">
-      {/* Animated tour cursor */}
+    <>
       <TourCursor
         fromPosition={cursorPosition}
         toPosition={targetPosition}
-        duration={1500}
-        showClick={step === 1}
+        duration={800}
+        showClick={showClick}
         visible={!animationComplete}
         onComplete={() => {
           setCursorPosition(targetPosition);
+          setShowClick(false);
         }}
       />
-      
-      {/* Task card being moved */}
-      <div
-        className={`absolute bg-white dark:bg-gray-800 rounded-md shadow-md p-3 w-64 
-                    transition-opacity duration-300 ${animationComplete ? 'opacity-0' : 'opacity-100'}`}
-        style={{
-          left: cardPosition.x,
-          top: cardPosition.y,
-          transform: 'translate(-50%, -50%)',
-          border: '2px solid #4FD1C5',
-          cursor: grabbing ? 'grabbing' : 'grab',
-          transition: grabbing ? 'none' : 'all 0.3s ease'
-        }}
-      >
-        <div className="font-medium text-gray-900 dark:text-gray-100">Board Meeting Presentation</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">Prepare slides and notes for tomorrow</div>
-        <div className="flex mt-2 gap-1">
-          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-2 py-0.5 rounded">important</span>
-          <span className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 px-2 py-0.5 rounded">urgent</span>
-        </div>
-      </div>
       
       {/* Instructions */}
       <div 
         className="absolute top-32 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 p-3 rounded-lg 
-                  shadow-lg border border-gray-200 dark:border-gray-700 max-w-xs text-center"
+                 shadow-lg border border-gray-200 dark:border-gray-700 max-w-xs text-center"
+        style={{
+          opacity: animationComplete ? 0 : 1,
+          transition: 'opacity 0.5s ease',
+          zIndex: 9000
+        }}
       >
         <p className="text-sm text-gray-700 dark:text-gray-300">
-          {step < 3 ? "Watch as we drag a task from 'Do' to 'Delegate'" : "Tasks can be moved between any quadrants as priorities change"}
+          {step < 2 
+            ? "Watch as we drag a task from 'Do' to 'Delegate' quadrant" 
+            : "Tasks can be moved between quadrants as priorities change"}
         </p>
       </div>
-      
-      {/* Source quadrant highlight */}
-      <div
-        className="absolute pointer-events-none border-2 border-dashed border-cyan-500/30 rounded-lg"
-        style={{
-          left: quadrantPositions.q1.x - quadrantPositions.q1.width * 0.1,
-          top: quadrantPositions.q1.y - quadrantPositions.q1.height * 0.2,
-          width: quadrantPositions.q1.width * 0.8,
-          height: quadrantPositions.q1.height * 0.8,
-          opacity: step < 2 ? 0.8 : 0.3,
-          transition: 'opacity 0.5s ease'
-        }}
-      />
-      
-      {/* Target quadrant highlight */}
-      <div
-        className="absolute pointer-events-none border-2 border-dashed border-cyan-500/30 rounded-lg"
-        style={{
-          left: quadrantPositions.q3.x - quadrantPositions.q3.width * 0.1,
-          top: quadrantPositions.q3.y - quadrantPositions.q3.height * 0.2,
-          width: quadrantPositions.q3.width * 0.8,
-          height: quadrantPositions.q3.height * 0.8,
-          opacity: step > 1 ? 0.8 : 0.3,
-          transition: 'opacity 0.5s ease'
-        }}
-      />
-    </div>
+    </>
   );
 };
 
