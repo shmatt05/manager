@@ -67,17 +67,56 @@ const TourOverlay = () => {
   }, [active, currentStep]);
   
   // Don't render anything if the tour is not active or overlay is disabled
-  if (!active || !currentStep || currentStep.disableOverlay) {
+  if (!active || !currentStep) {
+    console.log('TourOverlay: Not rendering overlay because', {
+      active, 
+      stepId: currentStep?.id,
+    });
     return null;
   }
   
+  // Special case for custom overlay settings
+  if (currentStep.disableOverlay) {
+    console.log('TourOverlay: Using minimal overlay for step', {
+      stepId: currentStep?.id,
+      hasTarget: !!targetRect,
+      disableSpotlight: currentStep?.disableSpotlight
+    });
+    // Still render a pointer-blocking layer when overlay is disabled
+    // This prevents interaction with the matrix
+    return (
+      <div className="fixed inset-0 z-40 pointer-events-auto" style={{ background: 'transparent' }}>
+        {/* Block all interactions except where explicitly allowed */}
+        {currentStep.allowInteractionAt && (
+          <div 
+            className="absolute"
+            style={{
+              left: currentStep.allowInteractionAt.left,
+              top: currentStep.allowInteractionAt.top,
+              width: currentStep.allowInteractionAt.width,
+              height: currentStep.allowInteractionAt.height,
+              pointerEvents: 'none'
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+  
+  console.log('TourOverlay: Rendering full overlay for step', {
+    stepId: currentStep?.id,
+    hasTarget: !!targetRect,
+    disableSpotlight: currentStep?.disableSpotlight
+  });
+  
   return (
-    <div className="fixed inset-0 z-40 pointer-events-none">
+    <div className={`fixed inset-0 z-40 pointer-events-none ${currentStep.id?.includes('matrix') || currentStep.id?.includes('task-move') ? 'tour-step-matrix-view' : ''}`}>
       {/* Semi-transparent background */}
       <div 
-        className="absolute inset-0 bg-black/25"
+        className="absolute inset-0 bg-black/25 tour-overlay"
         style={{
-          pointerEvents: currentStep.blockBackground === false ? 'none' : 'auto'
+          pointerEvents: 'auto', // Always block interactions with the background
+          opacity: currentStep.id?.includes('matrix') || currentStep.id?.includes('task-move') ? 0.15 : 0.25
         }}
       />
       
@@ -92,8 +131,10 @@ const TourOverlay = () => {
               top: targetRect.top,
               width: targetRect.width,
               height: targetRect.height,
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.25)',
-              borderRadius: '4px'
+              boxShadow: `0 0 0 9999px rgba(0, 0, 0, ${currentStep.id?.includes('matrix') || currentStep.id?.includes('task-move') ? '0.15' : '0.25'})`,
+              borderRadius: '4px',
+              // Only allow interaction if specifically enabled for this area
+              pointerEvents: currentStep.allowTargetInteraction ? 'none' : 'auto'
             }}
           />
           

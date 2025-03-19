@@ -144,6 +144,11 @@ function AppContent() {
         tasks: tasks,
         activeTab: activeTab
       }));
+      
+      // Set the demo tasks
+      if (e.detail && e.detail.tasks) {
+        setTasks(e.detail.tasks);
+      }
     };
     
     const handleTourEnd = (e) => {
@@ -157,12 +162,66 @@ function AppContent() {
       }
     };
     
+    const handleTourUpdateTasks = (e) => {
+      // Update the tasks during the tour
+      if (e.detail && e.detail.tasks) {
+        console.log('App: Updating tasks during tour:', e.detail.tasks);
+        setTasks(e.detail.tasks);
+      }
+    };
+    
+    const handleTourAddTask = (e) => {
+      // Handle adding a task during the tour directly from the App
+      if (e.detail && e.detail.task) {
+        console.log('App: Adding task during tour:', e.detail.task);
+        const newTask = e.detail.task;
+        
+        // Add the task to the existing tasks
+        setTasks(currentTasks => {
+          const updatedTasks = [...currentTasks, newTask];
+          console.log('App: Updated tasks after adding:', updatedTasks);
+          return updatedTasks;
+        });
+      }
+    };
+    
+    const handleTourMoveTask = (e) => {
+      // Handle moving a task during the tour
+      if (e.detail && e.detail.taskId && e.detail.targetQuadrant) {
+        console.log('App: Moving task during tour:', e.detail);
+        const { taskId, targetQuadrant } = e.detail;
+        
+        // Update the task's quadrant
+        setTasks(currentTasks => {
+          const updatedTasks = currentTasks.map(task => {
+            if (task.id === taskId || task.id.includes(taskId)) {
+              console.log('App: Found task to move:', task);
+              return {
+                ...task,
+                quadrant: targetQuadrant
+              };
+            }
+            return task;
+          });
+          
+          console.log('App: Updated tasks after moving:', updatedTasks);
+          return updatedTasks;
+        });
+      }
+    };
+    
     window.addEventListener('tour:start', handleTourStart);
     window.addEventListener('tour:end', handleTourEnd);
+    window.addEventListener('tour:update-tasks', handleTourUpdateTasks);
+    document.addEventListener('tour:add-task', handleTourAddTask);
+    document.addEventListener('tour:move-task', handleTourMoveTask);
     
     return () => {
       window.removeEventListener('tour:start', handleTourStart);
       window.removeEventListener('tour:end', handleTourEnd);
+      window.removeEventListener('tour:update-tasks', handleTourUpdateTasks);
+      document.removeEventListener('tour:add-task', handleTourAddTask);
+      document.removeEventListener('tour:move-task', handleTourMoveTask);
     };
   }, [tasks, activeTab]);
 

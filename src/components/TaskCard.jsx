@@ -254,6 +254,7 @@ export default function TaskCard({
       `}
       onClick={() => onEdit(task)}
       onContextMenu={handleContextMenu}
+      draggable="true"
       data-tour-id="task-card"
     >
       <div className="flex items-start gap-1">

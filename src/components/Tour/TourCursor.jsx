@@ -5,126 +5,64 @@ import React, { useState, useEffect } from 'react';
  * A React-based animated cursor for tour demonstrations
  * Uses React state for animation, avoiding direct DOM manipulation
  */
-const TourCursor = ({ fromPosition, toPosition, duration = 1000, showClick = false, onComplete = null, visible = true }) => {
-  const [position, setPosition] = useState(fromPosition);
-  const [isClicking, setIsClicking] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-  
-  // Handle animation via React useEffect
-  useEffect(() => {
-    const startTime = Date.now();
-    
-    // Animation frame loop
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min(elapsed / duration, 1);
-      
-      // Update progress state for animation
-      setProgress(newProgress);
-      
-      // Calculate new position with easing
-      const easeOutCubic = 1 - Math.pow(1 - newProgress, 3);
-      const x = fromPosition.x + (toPosition.x - fromPosition.x) * easeOutCubic;
-      const y = fromPosition.y + (toPosition.y - fromPosition.y) * easeOutCubic;
-      
-      // Update position state
-      setPosition({ x, y });
-      
-      // Continue animation if not complete
-      if (newProgress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // Animation complete
-        if (showClick) {
-          // Show click animation
-          setIsClicking(true);
-          
-          // Reset after click animation
-          setTimeout(() => {
-            setIsClicking(false);
-            
-            // Call onComplete callback if provided
-            if (onComplete) {
-              setTimeout(() => {
-                onComplete();
-              }, 200);
-            }
-          }, 300);
-        } else if (onComplete) {
-          onComplete();
-        }
-      }
-    };
-    
-    // Start animation
-    const animationId = requestAnimationFrame(animate);
-    
-    // Cleanup animation on unmount
-    return () => {
-      cancelAnimationFrame(animationId);
-      setIsVisible(false);
-    };
-  }, [fromPosition, toPosition, duration, showClick, onComplete]);
-  
-  if (!isVisible || !visible) return null;
-  
+const TourCursor = ({ position, visible = true, clicking = false, dragging = false }) => {
+  // Determine style based on input props
+  const baseStyle = {
+    position: 'fixed',
+    left: `${position.x}px`,
+    top: `${position.y}px`,
+    pointerEvents: 'none',
+    zIndex: 99999,
+    opacity: visible ? 1 : 0,
+    transform: 'translate(-50%, -50%)',
+    transition: 'left 0.4s ease-out, top 0.4s ease-out, transform 0.1s ease-out, opacity 0.2s ease-out',
+    filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.7))',
+    width: '40px',
+    height: '40px'
+  };
+
+  // Add click animation if clicking
+  const svgScale = clicking ? 'scale(0.8)' : 'scale(1)';
+  const svgStyle = {
+    transform: svgScale,
+    transition: 'transform 0.1s ease-out'
+  };
+
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        transform: `translate(${position.x}px, ${position.y}px)`,
-        zIndex: 9999,
-        pointerEvents: 'none',
-        transition: isClicking ? 'none' : 'transform 0.05s linear',
-        willChange: 'transform'
-      }}
-    >
-      {/* Cursor SVG */}
-      <svg 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        className={`transform -translate-x-1/2 -translate-y-1/2 ${isClicking ? 'scale-95' : ''}`}
-        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}
-      >
-        <path
-          d="M2.5 2L11 20.5L13.5 13.5L20.5 11L2.5 2Z"
-          fill="white"
-          stroke="#333"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
+    <div style={baseStyle} className="tour-cursor">
+      <div style={svgStyle}>
+        <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M7.75 4L16.19 26.94C16.31 27.25 16.75 27.22 16.83 26.9L19.97 16.84L29.05 12.61C29.35 12.47 29.31 12.02 18 4C14.18 1.41 8.15 3.58 7.75 4Z"
+            fill="white"
+            stroke="black"
+            strokeWidth="2.5"
+          />
+          {clicking && (
+            <circle cx="16" cy="16" r="14" fill="rgba(59, 130, 246, 0.3)" opacity="0.7">
+              <animate attributeName="r" from="10" to="20" dur="0.3s" begin="0s" fill="freeze" />
+              <animate attributeName="opacity" from="0.7" to="0" dur="0.3s" begin="0s" fill="freeze" />
+            </circle>
+          )}
+        </svg>
+      </div>
+      {dragging && (
+        <div 
+          className="pulse"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(79, 70, 229, 0.5)',
+            border: '3px solid #4f46e5',
+            boxShadow: '0 0 12px rgba(79, 70, 229, 0.8)',
+          }}
         />
-        
-        {isClicking && (
-          <circle 
-            cx="12" 
-            cy="12" 
-            r="8" 
-            fill="rgba(79, 209, 197, 0.3)" 
-            opacity={1 - (isClicking ? 0.5 : 0)}
-          >
-            <animate
-              attributeName="r"
-              from="4"
-              to="12"
-              dur="0.3s"
-              begin="0s"
-              fill="freeze"
-            />
-            <animate
-              attributeName="opacity"
-              from="0.8"
-              to="0"
-              dur="0.3s"
-              begin="0s"
-              fill="freeze"
-            />
-          </circle>
-        )}
-      </svg>
+      )}
     </div>
   );
 };

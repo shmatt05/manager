@@ -279,7 +279,10 @@ input, textarea, select {
 
 /* Tour-related styles */
 .tour-active .matrix-board {
-  z-index: 10;
+  z-index: 10 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background-color: rgba(15, 23, 42, 0.98) !important;
 }
 
 /* Prevent interaction with matrix components during tour */
@@ -287,8 +290,14 @@ input, textarea, select {
   pointer-events: none !important;
 }
 
-.tour-active .quadrant {
-  pointer-events: none !important;
+.tour-active .quadrant,
+.tour-active [class*="quadrant-"],
+.tour-active [data-quadrant] {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+  border: 1px solid rgba(148, 163, 184, 0.7) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 5 !important;
 }
 
 /* Only allow interaction with specifically marked elements */
@@ -303,8 +312,10 @@ input, textarea, select {
 }
 
 .tour-target-highlight {
-  box-shadow: 0 0 0 2px rgba(79, 209, 197, 0.6) !important;
-  transition: box-shadow 0.3s ease-in-out;
+  outline: 2px dashed #ef4444 !important;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
 }
 
 /* Tour dialog styling enhancements */
@@ -331,4 +342,240 @@ input, textarea, select {
 
 .tour-dialog-content code {
   @apply bg-gray-100 dark:bg-gray-700 px-1 rounded;
-} 
+}
+
+/* Custom tour spotlight and highlight effects */
+.tour-input-spotlight {
+  pointer-events: none;
+  z-index: 45;
+  border-radius: 8px;
+  animation: spotlight-pulse 2s ease-in-out infinite;
+}
+
+@keyframes spotlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 30px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3);
+  }
+}
+
+/* Task card highlight during drag animation */
+#tour-task-overlay {
+  border-radius: 6px;
+  animation: task-move-shadow 1.5s ease-in-out infinite;
+}
+
+@keyframes task-move-shadow {
+  0%, 100% {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(59, 130, 246, 0.6);
+  }
+}
+
+/* Tour-specific styles */
+.tour-active .task-card {
+  transition: all 0.3s ease;
+}
+
+.tour-active .task-card[data-tour-id="draggable-task"] {
+  box-shadow: 0 0 0 2px #4f46e5, 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  z-index: 10 !important;
+  position: relative;
+}
+
+.tour-cursor {
+  position: fixed;
+  z-index: 99999 !important;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.3)) !important;
+}
+
+/* Add a visible target to the Do quadrant during task move demo */
+[data-tour-id="urgent-important-quadrant"].tour-source-highlight {
+  outline: 2px dashed #4f46e5 !important;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Add a visible target to the Delegate quadrant during task move demo */
+[data-tour-id="urgent-not-important-quadrant"].tour-target-highlight {
+  outline: 2px dashed #ef4444 !important;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Tour highlight styles */
+.tour-source-highlight {
+  outline: 2px dashed #4f46e5 !important;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+.tour-active [data-tour-id="draggable-task"] {
+  box-shadow: 0 0 0 2px #4f46e5, 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Make cursor more visible during tour */
+.tour-cursor {
+  z-index: 99999 !important;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.3)) !important;
+}
+
+/* Make sure the dialog content is visible */
+.tour-dialog-content {
+  background-color: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+}
+
+/* Enhanced visibility for tour elements */
+.tour-source-highlight {
+  outline: 3px dashed #4f46e5 !important;
+  outline-offset: -3px;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  position: relative;
+  z-index: 1;
+}
+
+.tour-target-highlight {
+  outline: 3px dashed #ef4444 !important;
+  outline-offset: -3px;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  position: relative;
+  z-index: 1;
+}
+
+.tour-active [data-tour-id="draggable-task"] {
+  box-shadow: 0 0 0 3px #4f46e5, 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  z-index: 10 !important;
+  position: relative;
+}
+
+/* Make cursor more visible during tour */
+.tour-cursor {
+  z-index: 99999 !important;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)) !important;
+}
+
+/* Make the tour overlay more transparent during matrix steps */
+.tour-active .quadrant {
+  border: 1px solid rgba(148, 163, 184, 0.5) !important;
+  background-color: rgba(255, 255, 255, 0.015) !important;
+}
+
+/* Fix animation for the dragged task */
+.tour-dragged-task {
+  z-index: 99998 !important;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(79, 70, 229, 0.5) !important;
+  transform: rotate(3deg) scale(1.03) !important;
+  transition: box-shadow 0.3s ease, transform 0.3s ease !important;
+  background-color: white !important;
+  color: #1e293b !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure matrices are visible during tour */
+.tour-active .matrix-board {
+  opacity: 1 !important;
+  background-color: rgba(15, 23, 42, 0.98) !important;
+}
+
+/* Ensure task cards are visible */
+.tour-active .task-card {
+  background-color: white !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Add a visible target to the Do quadrant during task move demo */
+[data-tour-id="urgent-important-quadrant"].tour-source-highlight {
+  outline: 3px dashed #4f46e5 !important;
+  outline-offset: -3px;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* Add a visible target to the Delegate quadrant during task move demo */
+[data-tour-id="urgent-not-important-quadrant"].tour-target-highlight {
+  outline: 3px dashed #ef4444 !important;
+  outline-offset: -3px;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* Fix for visibility during tour steps that show the matrix */
+.tour-step-matrix-view .tour-overlay {
+  opacity: 0.15 !important;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+.pulse {
+  animation: pulse 1s infinite;
+}
+
+/* Ensure tasks are visible */
+.tour-active .task-card,
+.tour-active [data-testid="task-card"] {
+  background-color: white !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 6 !important;
+}
+
+/* Enhanced quadrant highlights */
+.tour-source-highlight {
+  outline: 3px dashed #4f46e5 !important;
+  outline-offset: -3px !important;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  position: relative !important;
+  z-index: 7 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.tour-target-highlight {
+  outline: 3px dashed #ef4444 !important;
+  outline-offset: -3px !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  position: relative !important;
+  z-index: 7 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Fix the overlay */
+.tour-step-matrix-view .tour-overlay {
+  opacity: 0.15 !important;
+}
+
+/* Make cursor more visible during tour */
+.tour-cursor {
+  z-index: 99999 !important;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)) !important;
+  pointer-events: none !important;
+}

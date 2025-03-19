@@ -1,0 +1,13 @@
+.firebaserc
+firebase.json
+firestore.indexes.json
+firestore.rules
+guide-implementation-plan.md
+.eslintrc.json
+.env.example
+CLAUDE.md
+src/test/**
+src/config/**
+**/*.test.js
+**/*.test.jsx
+

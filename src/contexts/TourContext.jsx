@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import tourSteps from '../data/tourSteps';
 
 // Create the context
@@ -18,10 +18,56 @@ export const TourProvider = ({ children }) => {
   const [stepHistory, setStepHistory] = useState([]);
   const [completed, setCompleted] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [dynamicStepData, setDynamicStepData] = useState({});
 
   // Get the current step
   const currentStep = tourSteps[currentStepIndex];
   const totalSteps = tourSteps.length;
+  
+  // Calculate dynamic interaction areas when needed
+  useEffect(() => {
+    if (!active || !currentStep) return;
+    
+    // If this step has a dynamic allowInteractionAt setting
+    if (currentStep.allowInteractionAt && currentStep.allowInteractionAt.calculateDynamically) {
+      const { selector, padding = 0 } = currentStep.allowInteractionAt;
+      
+      if (selector) {
+        // Find the element
+        const element = document.querySelector(selector);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          
+          // Calculate the interaction area with padding
+          const interactionArea = {
+            left: rect.left - padding,
+            top: rect.top - padding,
+            width: rect.width + (padding * 2),
+            height: rect.height + (padding * 2)
+          };
+          
+          // Update the dynamic step data
+          setDynamicStepData(prev => ({
+            ...prev,
+            [currentStep.id]: {
+              ...prev[currentStep.id],
+              allowInteractionAt: interactionArea
+            }
+          }));
+        }
+      }
+    }
+  }, [active, currentStep]);
+  
+  // Get the enriched current step with dynamic data
+  const enrichedCurrentStep = useMemo(() => {
+    if (!currentStep) return null;
+    
+    return {
+      ...currentStep,
+      ...(dynamicStepData[currentStep.id] || {})
+    };
+  }, [currentStep, dynamicStepData]);
 
   // Console logging for debugging
   useEffect(() => {
@@ -59,6 +105,19 @@ export const TourProvider = ({ children }) => {
     
     // Remove tour-active class from body
     document.body.classList.remove('tour-active');
+    
+    // Clean up any lingering tour elements
+    const tourElements = document.querySelectorAll('[data-tour-id]');
+    tourElements.forEach(el => {
+      // Only remove the attribute, not the element itself
+      el.removeAttribute('data-tour-id');
+    });
+    
+    // Remove any dragged task elements created during the tour
+    const draggedTask = document.getElementById('tour-dragged-task');
+    if (draggedTask) {
+      draggedTask.remove();
+    }
     
     // Dispatch tour:end event
     window.dispatchEvent(new CustomEvent('tour:end'));
@@ -187,7 +246,7 @@ export const TourProvider = ({ children }) => {
   // Value to be provided by the context
   const value = {
     active,
-    currentStep,
+    currentStep: enrichedCurrentStep,
     currentStepIndex,
     totalSteps,
     stepHistory,

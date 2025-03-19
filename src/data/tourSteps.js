@@ -75,10 +75,17 @@ const tourSteps = [
       <p class="italic text-gray-600 dark:text-gray-400">Watch as we add a task with the #do hashtag to place it in the "Do" quadrant.</p>
     `,
     target: 'form input[type="text"]',
-    position: 'top-right',
-    dialogPosition: { top: '20px', left: '20px', right: 'auto', transform: 'none' },
-    blockBackground: false,
+    position: 'right', // Position to the right of the input field
+    dialogPosition: { bottom: 'auto', left: 'auto', top: '100px', right: '20px', transform: 'none' }, // Far right position with fixed distance from top
+    dialogOffset: { x: 20, y: 0 }, // Add extra space between input and dialog
+    disableOverlay: true, // Use the minimal overlay
     disableSpotlight: true,
+    // Allow interaction only with the form itself for the demo
+    allowInteractionAt: { 
+      calculateDynamically: true, // Flag to recalculate this on mount
+      selector: 'form', // Calculate position based on this element
+      padding: 20 // Add padding around the element
+    },
     component: TaskInputDemo
   },
   
@@ -196,10 +203,10 @@ const tourSteps = [
       <p class="italic text-gray-600 dark:text-gray-400">Watch as we move a task from "Do" to "Delegate" by dragging.</p>
     `,
     target: 'body',
-    position: 'top-right',
-    dialogPosition: { top: '20px', left: 'auto', right: '20px', transform: 'none' },
+    position: 'bottom',
+    dialogPosition: { bottom: 'auto', right: '20px', top: '20px', left: 'auto', transform: 'none' },
     disableOverlay: true,
-    blockBackground: false,
+    // Don't allow any interactions with the matrix for this one
     component: TourTaskMoveDemo
   },
   

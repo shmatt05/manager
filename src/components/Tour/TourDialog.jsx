@@ -37,6 +37,13 @@ const TourDialog = () => {
   useEffect(() => {
     if (!active || !currentStep) return;
     
+    console.log('TourDialog: Positioning dialog for step', {
+      stepId: currentStep.id,
+      position: currentStep.position,
+      dialogPosition: currentStep.dialogPosition,
+      target: currentStep.target
+    });
+    
     // Default position (center)
     let newPosition = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
     
@@ -111,6 +118,7 @@ const TourDialog = () => {
       }
     }
     
+    console.log('TourDialog: Final position calculated', newPosition);
     setPosition(newPosition);
     
     // Call onShow handler if available
@@ -150,44 +158,46 @@ const TourDialog = () => {
     >
       <div 
         ref={dialogRef}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-lg pointer-events-auto"
+        className="bg-slate-800 rounded-lg shadow-2xl p-6 max-w-lg pointer-events-auto border border-slate-700 tour-dialog-content"
         style={{
           position: 'absolute',
           top: position.top,
           left: position.left,
           transform: position.transform,
-          zIndex: 60
+          zIndex: 60,
+          backdropFilter: 'blur(8px)',
+          maxWidth: '450px'
         }}
       >
         {/* Title */}
-        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100 border-b pb-2">
+        <h2 className="text-xl font-semibold mb-4 text-white border-b border-slate-700 pb-2">
           {currentStep.title}
         </h2>
         
         {/* Content */}
         <div 
-          className="prose prose-sm dark:prose-invert max-w-none mb-6"
+          className="prose prose-sm prose-invert max-w-none mb-6 text-slate-200 tour-dialog-content"
           dangerouslySetInnerHTML={{ __html: currentStep.content }}
         />
         
         {/* Progress bar */}
-        <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded mb-4">
+        <div className="w-full h-1 bg-slate-700 rounded mb-4">
           <div 
-            className="h-1 bg-blue-500 rounded"
+            className="h-1 bg-blue-500 rounded transition-all duration-300 ease-in-out"
             style={{ width: `${progress}%` }}
           />
         </div>
         
         {/* Navigation */}
         <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-slate-400">
             Step {currentStepIndex + 1} of {totalSteps}
           </div>
           
           <div className="space-x-2">
             <button
               onClick={endTour}
-              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-sm text-slate-400 hover:text-white transition-colors"
             >
               Skip
             </button>
@@ -195,10 +205,10 @@ const TourDialog = () => {
             <button
               onClick={prevStep}
               disabled={currentStepIndex === 0}
-              className={`px-3 py-1 rounded ${
+              className={`px-3 py-1 rounded transition-colors ${
                 currentStepIndex === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
               }`}
             >
               Back
@@ -206,7 +216,7 @@ const TourDialog = () => {
             
             <button
               onClick={nextStep}
-              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
             >
               {currentStepIndex === totalSteps - 1 ? 'Finish' : 'Next'}
             </button>

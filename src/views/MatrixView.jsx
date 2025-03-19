@@ -209,6 +209,41 @@ export default function MatrixView({
   // Ripple effect for buttons - moved up to follow React hooks rules
   const [ripplePos, setRipplePos] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
+
+  // Add data-tour-id attributes to ensure tour can find elements
+  useEffect(() => {
+    // This ensures that elements are properly identified for the tour
+    const gridContainer = document.querySelector('.grid');
+    if (gridContainer) {
+      // Mark the entire board
+      gridContainer.parentElement?.setAttribute('data-tour-id', 'demo-board');
+      
+      // Find and mark all quadrants
+      const quadrants = document.querySelectorAll('[id^="urgent-important"], [id^="not-urgent-important"], [id^="urgent-not-important"], [id^="not-urgent-not-important"]');
+      
+      // Apply data attributes to quadrants
+      quadrants.forEach(quadrant => {
+        const id = quadrant.id;
+        if (id) {
+          quadrant.setAttribute('data-tour-id', id);
+        }
+      });
+      
+      // Mark the first task card for drag demo if available
+      const taskCards = document.querySelectorAll('.task-card');
+      if (taskCards.length > 0) {
+        taskCards[0].setAttribute('data-tour-id', 'task-card');
+        
+        // If we're in the tour and in the dragging step, mark a card for dragging
+        if (active) {
+          const firstTaskInDoQuadrant = document.querySelector('#urgent-important .task-card');
+          if (firstTaskInDoQuadrant) {
+            firstTaskInDoQuadrant.setAttribute('data-tour-id', 'draggable-task');
+          }
+        }
+      }
+    }
+  }, [localTasks, active]); // Re-run when tasks or tour state changes
   
   const lastDragTimeRef = useRef(0);
   const isDraggingRef = useRef(false);
@@ -360,7 +395,70 @@ export default function MatrixView({
     };
   }, []);
   
+  // Listen for tour events
+  useEffect(() => {
+    const handleTourStart = (e) => {
+      console.log('MatrixView: Received tour:start event', {
+        demoData: e.detail,
+        tasksCount: e.detail?.tasks?.length,
+        hasDemoTasks: !!e.detail?.tasks
+      });
+      setDemoData(e.detail);
+    };
+    
+    const handleTourEnd = () => {
+      console.log('MatrixView: Received tour:end event');
+      setDemoData(null);
+    };
+    
+    const handleTourUpdateTasks = (e) => {
+      console.log('MatrixView: Received tour:update-tasks event', {
+        tasksCount: e.detail?.tasks?.length,
+        hasDemoTasks: !!e.detail?.tasks
+      });
+      setDemoData(e.detail);
+    };
+    
+    window.addEventListener('tour:start', handleTourStart);
+    window.addEventListener('tour:end', handleTourEnd);
+    window.addEventListener('tour:update-tasks', handleTourUpdateTasks);
+    
+    return () => {
+      window.removeEventListener('tour:start', handleTourStart);
+      window.removeEventListener('tour:end', handleTourEnd);
+      window.removeEventListener('tour:update-tasks', handleTourUpdateTasks);
+    };
+  }, []);
+  
+  // Use demo data during tour
+  const displayTasks = useMemo(() => {
+    console.log('MatrixView: Calculating displayTasks', {
+      active,
+      hasDemoData: !!demoData,
+      demoTasksCount: demoData?.tasks?.length,
+      regularTasksCount: tasks?.length
+    });
+    if (active && demoData) {
+      return demoData.tasks;
+    }
+    return tasks;
+  }, [active, demoData, tasks]);
+  
+  // Update localTasks when displayTasks changes
+  useEffect(() => {
+    console.log('MatrixView: Updating localTasks', {
+      displayTasksCount: displayTasks?.length,
+      hasTasks: !!displayTasks
+    });
+    setLocalTasks(displayTasks);
+  }, [displayTasks]);
+
   const quadrantTasks = useMemo(() => {
+    console.log('MatrixView: Calculating quadrantTasks', {
+      displayTasksCount: displayTasks?.length,
+      active,
+      hasDemoData: !!demoData
+    });
     const sorted = {
       'urgent-important': [],
       'not-urgent-important': [],
@@ -403,16 +501,24 @@ export default function MatrixView({
         sorted[quadrant].push(task);
       });
 
+    console.log('MatrixView: Quadrant tasks distribution', {
+      urgentImportant: sorted['urgent-important'].length,
+      notUrgentImportant: sorted['not-urgent-important'].length,
+      urgentNotImportant: sorted['urgent-not-important'].length,
+      notUrgentNotImportant: sorted['not-urgent-not-important'].length,
+      backlog: sorted['backlog'].length
+    });
+
     return sorted;
   }, [localTasks, active, demoData]);
 
   const handleDragStart = useCallback((event) => {
-    const { active } = event;
-    console.log('Drag start:', active.id);
-    setActiveId(active.id);
+    const { active: activeDragItem } = event;
+    console.log('Drag start:', activeDragItem.id);
+    setActiveId(activeDragItem.id);
     isDraggingRef.current = true;
     
-    const task = tasks.find(t => t.id === active.id);
+    const task = tasks.find(t => t.id === activeDragItem.id);
     if (task) {
       lastDraggedTaskRef.current = {...task};
     }
@@ -828,44 +934,12 @@ export default function MatrixView({
     }
   }, []); // Empty dependency array - only run once on mount
 
-  // Listen for tour events
-  useEffect(() => {
-    const handleTourStart = (e) => {
-      setDemoData(e.detail);
-    };
-    
-    const handleTourEnd = () => {
-      setDemoData(null);
-    };
-    
-    window.addEventListener('tour:start', handleTourStart);
-    window.addEventListener('tour:end', handleTourEnd);
-    
-    return () => {
-      window.removeEventListener('tour:start', handleTourStart);
-      window.removeEventListener('tour:end', handleTourEnd);
-    };
-  }, []);
-  
-  // Use demo data during tour
-  const displayTasks = useMemo(() => {
-    if (active && demoData) {
-      return demoData.tasks;
-    }
-    return tasks;
-  }, [active, demoData, tasks]);
-  
-  // Update localTasks when displayTasks changes
-  useEffect(() => {
-    setLocalTasks(displayTasks);
-  }, [displayTasks]);
-
   if (loading) {
     return <div>Loading tickets...</div>;
   }
 
   return (
-    <div className="p-2 h-full flex flex-col">
+    <div className="flex flex-col h-full" data-tour-id="demo-board">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
