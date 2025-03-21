@@ -1,447 +1,286 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTour } from '../../contexts/TourContext';
 import TourCursor from './TourCursor';
 
 /**
  * TaskInputDemo component
- * Demonstrates adding a task with typing animation
+ * Demonstrates adding a task by using the real app functionality
+ * Uses a visible cursor for demonstrations and the real form
  */
 const TaskInputDemo = () => {
+  const [step, setStep] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ x: -50, y: -50 });
   const [cursorVisible, setCursorVisible] = useState(true);
   const [cursorClicking, setCursorClicking] = useState(false);
-  const [inputText, setInputText] = useState('');
-  const [step, setStep] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
-
+  
   // References for cleanup
   const timeoutRefs = useRef([]);
-  const cleanupFunctions = useRef([]);
   const inputRef = useRef(null);
-  
+  const buttonRef = useRef(null);
+  const { nextStep } = useTour();
+
   // Task title to type
   const taskTitle = "Board Meeting Presentation #do";
-  
-  // Flag to track if we've set the input value directly
-  const hasManuallySetInput = useRef(false);
 
-  // Get input field position
-  const getInputPosition = () => {
-    // Try to find the task input field by data attribute first
-    let inputField = document.querySelector('[data-tour-id="task-input-field"]');
+  // Get references to the actual form elements
+  const findAndSetupElements = () => {
+    // Find the input field first
+    const inputField = document.querySelector('[data-tour-id="task-input-field"]') || 
+                       document.querySelector('input[type="text"][placeholder*="task"]') ||
+                       document.querySelector('input[placeholder*="Add task"]') ||
+                       document.querySelector('form input[type="text"]');
     
-    // If not found, try other selectors
-    if (!inputField) {
-      console.log('TaskInputDemo: Input field with data-tour-id not found, trying alternatives');
-      inputField = document.querySelector('input[type="text"][placeholder*="task"]') || 
-                 document.querySelector('input[placeholder*="Add task"]') ||
-                 document.querySelector('form input[type="text"]') ||
-                 document.querySelector('.task-input') ||
-                 document.querySelector('header input') ||
-                 document.querySelector('input');
-      
-      // If found with alternative selector, add the data attribute
-      if (inputField) {
-        console.log('TaskInputDemo: Found input field with alternative selector', inputField);
-        inputField.setAttribute('data-tour-id', 'task-input-field');
-        inputRef.current = inputField;
-      }
-    } else {
+    // Find the add button
+    const button = document.querySelector('[data-tour-id="add-task-button"]') ||
+                  document.querySelector('form button[type="submit"]') ||
+                  document.querySelector('form button');
+    
+    // Save references
+    if (inputField) {
+      inputField.setAttribute('data-tour-id', 'task-input-field');
       inputRef.current = inputField;
     }
     
-    if (!inputField) {
-      console.warn('TaskInputDemo: Could not find input field, using fallback position');
-      return { x: window.innerWidth / 2, y: 100 };
+    if (button) {
+      button.setAttribute('data-tour-id', 'add-task-button');
+      buttonRef.current = button;
     }
     
-    const rect = inputField.getBoundingClientRect();
-    return {
-      x: rect.left + Math.min(100, rect.width / 3), // Position cursor near start of input
-      y: rect.top + rect.height / 2
-    };
+    return { inputField, button };
   };
 
-  // Get button position
-  const getButtonPosition = () => {
-    // Try to find the button by data attribute first
-    let button = document.querySelector('[data-tour-id="add-task-button"]');
-    
-    // If not found, try other selectors
-    if (!button) {
-      console.log('TaskInputDemo: Add button with data-tour-id not found, trying alternatives');
-      button = document.querySelector('form button') ||
-               document.querySelector('button[type="submit"]') ||
-               document.querySelector('header button') ||
-               document.querySelector('.add-task-button') ||
-               document.querySelector('button');
+  // Highlight the input field to draw user's attention
+  const highlightInput = (inputField) => {
+    if (inputField) {
+      inputField.classList.add('tour-highlight');
       
-      // If found with alternative selector, add the data attribute
-      if (button) {
-        console.log('TaskInputDemo: Found button with alternative selector', button);
-        button.setAttribute('data-tour-id', 'add-task-button');
+      // Focus the input field to place cursor in it
+      inputField.focus();
+    }
+  };
+
+  // Simulate typing or guide the user to type
+  const handleTyping = () => {
+    // Automatically fill in the task input
+    const inputField = inputRef.current;
+    
+    if (inputField) {
+      // Set the value directly
+      inputField.value = taskTitle;
+      
+      // Trigger input event to update React state
+      const inputEvent = new Event('input', { bubbles: true });
+      inputField.dispatchEvent(inputEvent);
+      
+      // Trigger change event
+      const changeEvent = new Event('change', { bubbles: true });
+      inputField.dispatchEvent(changeEvent);
+      
+      console.log('TaskInputDemo: Set input value to', taskTitle);
+      
+      // Move to next step after a brief pause
+      const timeout = setTimeout(() => {
+        setStep(2);
+        highlightAddButton();
+      }, 1000);
+      
+      timeoutRefs.current.push(timeout);
+    }
+  };
+
+  // Highlight the add button
+  const highlightAddButton = () => {
+    const button = buttonRef.current;
+    
+    if (button) {
+      // Remove highlight from input
+      const inputField = inputRef.current;
+      if (inputField) {
+        inputField.classList.remove('tour-highlight');
       }
+      
+      // Add highlight to button
+      button.classList.add('tour-highlight');
+      
+      // Scroll to ensure button is visible
+      button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Get button position for cursor
+      const buttonPosition = getElementPosition(button);
+      
+      // Move cursor to button
+      moveCursor(buttonPosition, 1000, () => {
+        // Show click animation before clicking
+        setCursorClicking(true);
+        
+        // After a short delay, simulate click on the button
+        const timeout = setTimeout(() => {
+          handleAddTask();
+          setTimeout(() => setCursorClicking(false), 300);
+        }, 500);
+        
+        timeoutRefs.current.push(timeout);
+      });
     }
+  };
+
+  // Handle adding the task
+  const handleAddTask = () => {
+    const button = buttonRef.current;
     
-    if (!button) {
-      console.warn('TaskInputDemo: Could not find add button, using fallback position');
-      return { x: window.innerWidth / 2 + 150, y: 100 };
+    if (button) {
+      // Actually click the button
+      button.click();
+      console.log('TaskInputDemo: Clicked add button');
+      
+      // Complete the demo
+      const timeout = setTimeout(() => {
+        // Clean up highlights
+        if (inputRef.current) {
+          inputRef.current.classList.remove('tour-highlight');
+        }
+        
+        if (buttonRef.current) {
+          buttonRef.current.classList.remove('tour-highlight');
+        }
+        
+        setIsComplete(true);
+        
+        // Wait a moment before proceeding to the next tour step
+        const nextTimeout = setTimeout(() => {
+          nextStep();
+        }, 500);
+        
+        timeoutRefs.current.push(nextTimeout);
+      }, 1000);
+      
+      timeoutRefs.current.push(timeout);
     }
-    
-    // Get exact button position
-    const rect = button.getBoundingClientRect();
-    console.log('TaskInputDemo: Add button position', { 
-      left: rect.left, 
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      center: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    });
-    
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    };
   };
 
   // Move cursor with animation
   const moveCursor = (toPos, duration = 800, onFinish = null) => {
     const startPos = { ...cursorPosition };
     const startTime = Date.now();
-    
+
     const animate = () => {
       const now = Date.now();
       const progress = Math.min((now - startTime) / duration, 1);
-      
+
       // Cubic ease out for more natural movement
       const easeProgress = 1 - Math.pow(1 - progress, 3);
-      
+
       const newX = startPos.x + (toPos.x - startPos.x) * easeProgress;
       const newY = startPos.y + (toPos.y - startPos.y) * easeProgress;
-      
+
       setCursorPosition({ x: newX, y: newY });
-      
+
       if (progress < 1) {
         const animFrame = requestAnimationFrame(animate);
         const cancelAnimation = () => cancelAnimationFrame(animFrame);
-        cleanupFunctions.current.push(cancelAnimation);
+        timeoutRefs.current.push(cancelAnimation);
       } else if (onFinish) {
         onFinish();
       }
     };
-    
+
     animate();
   };
 
-  // Direct DOM manipulation to update input field
-  const updateInputFieldValue = (text) => {
-    const inputField = inputRef.current || 
-                     document.querySelector('[data-tour-id="task-input-field"]') || 
-                     document.querySelector('input[type="text"][placeholder*="task"]') || 
-                     document.querySelector('form input[type="text"]') ||
-                     document.querySelector('header input') ||
-                     document.querySelector('input');
+  // Get element position for cursor
+  const getElementPosition = (element) => {
+    if (!element) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     
-    if (inputField) {
-      console.log(`TaskInputDemo: Directly setting input field value to "${text}"`);
-      
-      // Set value directly on the DOM element
-      inputField.value = text;
-      
-      // Force React to recognize the change
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value'
-      ).set;
-      
-      nativeInputValueSetter.call(inputField, text);
-      
-      // Dispatch input event to trigger React's onChange
-      const inputEvent = new Event('input', { bubbles: true });
-      inputField.dispatchEvent(inputEvent);
-      
-      hasManuallySetInput.current = true;
-      
-      return true;
-    }
-    
-    console.warn('TaskInputDemo: Failed to update input field value');
-    return false;
-  };
-
-  // Simulating typing into input field
-  const simulateTyping = (text, onComplete) => {
-    let currentIndex = 0;
-    
-    // Focus the input field programmatically
-    const inputField = inputRef.current || 
-                     document.querySelector('[data-tour-id="task-input-field"]') || 
-                     document.querySelector('input[type="text"][placeholder*="task"]') || 
-                     document.querySelector('form input[type="text"]');
-    
-    if (inputField) {
-      // Try to set focus
-      inputField.focus();
-      console.log('TaskInputDemo: Focusing input field');
-    }
-    
-    const typeNextChar = () => {
-      if (currentIndex < text.length) {
-        const newText = text.substring(0, currentIndex + 1);
-        setInputText(newText);
-        
-        // Update the actual DOM element value directly
-        updateInputFieldValue(newText);
-        
-        currentIndex++;
-        
-        // Type at varying speeds for realism
-        const delay = 50 + Math.random() * 100; 
-        const timeout = setTimeout(typeNextChar, delay);
-        timeoutRefs.current.push(timeout);
-      } else if (onComplete) {
-        // Make sure the final text is set
-        updateInputFieldValue(text);
-        
-        const timeout = setTimeout(onComplete, 300);
-        timeoutRefs.current.push(timeout);
-      }
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 3,
+      y: rect.top + rect.height / 2
     };
-    
-    typeNextChar();
   };
 
-  // Click the Add button
-  const clickButton = () => {
-    setCursorClicking(true);
-    console.log('Clicking Add button');
+  // Run the demo
+  const runDemo = () => {
+    // First locate and set up the elements
+    const { inputField, button } = findAndSetupElements();
     
-    // Make sure the input has the full text before clicking
-    updateInputFieldValue(taskTitle);
-    
-    // Find the button and try to click it programmatically
-    const button = document.querySelector('[data-tour-id="add-task-button"]') ||
-                 document.querySelector('form button') ||
-                 document.querySelector('button[type="submit"]');
-    
-    if (button) {
-      console.log('TaskInputDemo: Programmatically clicking button', {
-        id: button.id,
-        type: button.type,
-        text: button.textContent,
-        rect: button.getBoundingClientRect()
-      });
-      
-      try {
-        // Use different approach to simulate a more realistic click
-        
-        // 1. First trigger a mousedown event
-        const mousedownEvent = new MouseEvent('mousedown', {
-          bubbles: true,
-          cancelable: true,
-          view: window
-        });
-        button.dispatchEvent(mousedownEvent);
-        
-        // 2. Then trigger a mouseup event
-        const mouseupEvent = new MouseEvent('mouseup', {
-          bubbles: true,
-          cancelable: true,
-          view: window
-        });
-        button.dispatchEvent(mouseupEvent);
-        
-        // 3. Finally simulate the actual click
-        button.click();
-        
-        console.log('TaskInputDemo: Button click events dispatched');
-      } catch (err) {
-        console.error('TaskInputDemo: Failed to click button', err);
-        
-        // Fallback to simpler click
-        try {
-          button.click();
-        } catch (e) {
-          console.error('TaskInputDemo: Even simple click failed', e);
-        }
-      }
-    } else {
-      console.error('TaskInputDemo: Could not find any button to click');
+    if (!inputField || !button) {
+      console.error('TaskInputDemo: Could not find required elements');
+      return;
     }
     
-    // Show clicking animation then reset
-    const timeout = setTimeout(() => {
-      setCursorClicking(false);
-      
-      // Simulate adding the task
-      const taskId = 'tour-task-' + Date.now();
-      console.log('TaskInputDemo: Created task with ID', taskId);
-      
-      // Dispatch event to add a task to the demo board
-      const addTaskEvent = new CustomEvent('tour:add-task', {
-        detail: { 
-          task: {
-            id: taskId,
-            title: taskTitle,
-            description: 'Created during tour demonstration',
-            tags: ['important', 'tour', 'do'],
-            priority: 1,
-            status: 'todo',
-            quadrant: 'q1', // "Do" quadrant
-            dueDate: new Date(Date.now() + 86400000).toISOString(), // tomorrow
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        }
-      });
-      
-      // Log and dispatch the event
-      console.log('TaskInputDemo: Dispatching task creation event', addTaskEvent.detail);
-      document.dispatchEvent(addTaskEvent);
-      
-      // Finish the demo with a delay
-      const completeTimeout = setTimeout(() => {
-        setIsComplete(true);
+    // Position cursor out of view initially
+    setCursorPosition({ x: -50, y: window.innerHeight / 2 });
+    
+    // Start by moving cursor to the input field
+    const inputPosition = getElementPosition(inputField);
+    
+    // Move cursor to input field
+    const timeout0 = setTimeout(() => {
+      moveCursor(inputPosition, 1000, () => {
+        // Start by highlighting the input field
+        highlightInput(inputField);
         
-        // Move cursor off screen
-        const finalPosition = { x: window.innerWidth + 100, y: window.innerHeight / 2 };
-        moveCursor(finalPosition, 800);
-      }, 1000);
-      
-      timeoutRefs.current.push(completeTimeout);
-    }, 300);
+        // After a short delay, fill in the input
+        const timeout = setTimeout(() => {
+          setStep(1);
+          // Show click animation before typing
+          setCursorClicking(true);
+          setTimeout(() => setCursorClicking(false), 300);
+          handleTyping();
+        }, 500);
+        
+        timeoutRefs.current.push(timeout);
+      });
+    }, 500);
+    
+    timeoutRefs.current.push(timeout0);
+  };
+
+  // Cleanup function
+  const cleanupDemo = () => {
+    // Clear all timeouts
+    timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
+    timeoutRefs.current = [];
+    
+    // Remove any highlights
+    if (inputRef.current) {
+      inputRef.current.classList.remove('tour-highlight');
+    }
+    
+    if (buttonRef.current) {
+      buttonRef.current.classList.remove('tour-highlight');
+    }
+    
+    // Remove any other highlights
+    document.querySelectorAll('.tour-highlight').forEach(el => {
+      el.classList.remove('tour-highlight');
+    });
+  };
+
+  // Initialize the demo
+  useEffect(() => {
+    // Start the demo after a short delay
+    const timeout = setTimeout(() => {
+      runDemo();
+    }, 500);
     
     timeoutRefs.current.push(timeout);
-  };
-
-  // Initialize and run the demo
-  useEffect(() => {
-    // Add a class to the body to make the tour elements more visible
-    document.body.classList.add('tour-active');
     
-    // Ensure the input field is tagged and prepared
-    const prepareElements = () => {
-      // Tag the input field
-      const input = document.querySelector('input[type="text"][placeholder*="task"]') || 
-                  document.querySelector('form input[type="text"]') ||
-                  document.querySelector('header input') ||
-                  document.querySelector('input');
-                  
-      if (input) {
-        input.setAttribute('data-tour-id', 'task-input-field');
-        console.log('TaskInputDemo: Tagged input field with data-tour-id', input);
-        inputRef.current = input;
-        
-        // Make sure placeholder doesn't interfere
-        if (input.value === '') {
-          input.placeholder = '';
-        }
-        
-        // Clear any existing value
-        updateInputFieldValue('');
-      }
-      
-      // Tag the submit button
-      const button = document.querySelector('form button') ||
-                   document.querySelector('button[type="submit"]') ||
-                   document.querySelector('header button') ||
-                   document.querySelector('button');
-                   
-      if (button) {
-        button.setAttribute('data-tour-id', 'add-task-button');
-        console.log('TaskInputDemo: Tagged button with data-tour-id', button);
-      }
-      
-      return !!input && !!button;
-    };
-    
-    // Sequence defining the steps of the demo
-    const runDemo = () => {
-      // First prepare the elements
-      const elementsReady = prepareElements();
-      
-      if (!elementsReady) {
-        console.log('TaskInputDemo: Elements not ready, retrying in 200ms');
-        const retryTimeout = setTimeout(runDemo, 200);
-        timeoutRefs.current.push(retryTimeout);
-        return;
-      }
-      
-      // Start with cursor off-screen
-      setCursorPosition({ x: -50, y: window.innerHeight / 2 });
-      
-      // Step 1: Move to input field
-      const timeout1 = setTimeout(() => {
-        const inputPos = getInputPosition();
-        console.log('TaskInputDemo: Moving to input position', inputPos);
-        
-        moveCursor(inputPos, 1000, () => {
-          // Step 2: Type in the task title
-          const timeout2 = setTimeout(() => {
-            console.log('TaskInputDemo: Starting typing animation');
-            
-            simulateTyping(taskTitle, () => {
-              // Step 3: Move to Add button
-              const timeout3 = setTimeout(() => {
-                const buttonPos = getButtonPosition();
-                console.log('TaskInputDemo: Moving to button position', buttonPos);
-                
-                moveCursor(buttonPos, 800, () => {
-                  // Step 4: Click the Add button
-                  const timeout4 = setTimeout(() => {
-                    clickButton();
-                  }, 200);
-                  timeoutRefs.current.push(timeout4);
-                });
-              }, 300);
-              timeoutRefs.current.push(timeout3);
-            });
-          }, 200);
-          timeoutRefs.current.push(timeout2);
-        });
-      }, 500);
-      timeoutRefs.current.push(timeout1);
-    };
-
-    // Start the demo
-    runDemo();
-
-    // Regularly check if we need to forcefully update the input field value
-    const inputUpdateInterval = setInterval(() => {
-      if (inputText && !hasManuallySetInput.current) {
-        updateInputFieldValue(inputText);
-      }
-    }, 100);
-    
-    cleanupFunctions.current.push(() => clearInterval(inputUpdateInterval));
-
-    // Cleanup function
+    // Clean up on unmount
     return () => {
-      console.log('TaskInputDemo: Cleaning up');
-      
-      // Clear all timeouts
-      timeoutRefs.current.forEach(clearTimeout);
-      
-      // Run all cleanup functions
-      cleanupFunctions.current.forEach(fn => fn());
-      
-      // Reset input field
-      const inputField = inputRef.current || 
-                        document.querySelector('[data-tour-id="task-input-field"]') ||
-                        document.querySelector('form input[type="text"]');
-                        
-      if (inputField) {
-        updateInputFieldValue('');
-      }
-      
-      // Remove tour-active class from body
-      document.body.classList.remove('tour-active');
+      cleanupDemo();
     };
   }, []);
 
+  // Render the cursor visualization
+  if (!cursorVisible) return null;
+  
   return (
     <TourCursor 
-      position={cursorPosition}
-      visible={cursorVisible}
-      clicking={cursorClicking}
+      position={cursorPosition} 
+      clicking={cursorClicking} 
+      dragging={false} 
     />
   );
 };
