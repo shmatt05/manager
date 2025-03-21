@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTour } from '../../contexts/TourContext';
-import TourCursor from './TourCursor';
 
 /**
  * TaskInputDemo component
- * Demonstrates adding a task by using the real app functionality
- * Uses a visible cursor for demonstrations and the real form
+ * Guides the user to use the real input field and button
+ * Uses highlighting to show what to interact with
  */
 const TaskInputDemo = () => {
   const [step, setStep] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState({ x: -50, y: -50 });
-  const [cursorVisible, setCursorVisible] = useState(true);
-  const [cursorClicking, setCursorClicking] = useState(false);
+  const [waitingForInput, setWaitingForInput] = useState(false);
+  const [waitingForClick, setWaitingForClick] = useState(false);
   
   // References for cleanup
   const timeoutRefs = useRef([]);
@@ -20,23 +18,23 @@ const TaskInputDemo = () => {
   const buttonRef = useRef(null);
   const { nextStep } = useTour();
 
-  // Task title to type
-  const taskTitle = "Board Meeting Presentation #do";
+  // Suggested task text
+  const suggestedTask = "Board Meeting Presentation #do";
 
-  // Get references to the actual form elements
+  // Find and setup form elements
   const findAndSetupElements = () => {
-    // Find the input field first
+    // Find the input field
     const inputField = document.querySelector('[data-tour-id="task-input-field"]') || 
-                       document.querySelector('input[type="text"][placeholder*="task"]') ||
-                       document.querySelector('input[placeholder*="Add task"]') ||
-                       document.querySelector('form input[type="text"]');
+                     document.querySelector('input[type="text"][placeholder*="task"]') ||
+                     document.querySelector('input[placeholder*="Add task"]') ||
+                     document.querySelector('form input[type="text"]');
     
     // Find the add button
     const button = document.querySelector('[data-tour-id="add-task-button"]') ||
                   document.querySelector('form button[type="submit"]') ||
                   document.querySelector('form button');
     
-    // Save references
+    // Set up data attributes for easier reference
     if (inputField) {
       inputField.setAttribute('data-tour-id', 'task-input-field');
       inputRef.current = inputField;
@@ -50,216 +48,234 @@ const TaskInputDemo = () => {
     return { inputField, button };
   };
 
-  // Highlight the input field to draw user's attention
-  const highlightInput = (inputField) => {
-    if (inputField) {
-      inputField.classList.add('tour-highlight');
-      
-      // Focus the input field to place cursor in it
-      inputField.focus();
-    }
-  };
-
-  // Simulate typing or guide the user to type
-  const handleTyping = () => {
-    // Automatically fill in the task input
-    const inputField = inputRef.current;
+  // Add spotlight effect to an element
+  const addSpotlightTo = (element, className = 'tour-pulse-highlight') => {
+    if (!element) return;
     
-    if (inputField) {
-      // Set the value directly
-      inputField.value = taskTitle;
-      
-      // Trigger input event to update React state
-      const inputEvent = new Event('input', { bubbles: true });
-      inputField.dispatchEvent(inputEvent);
-      
-      // Trigger change event
-      const changeEvent = new Event('change', { bubbles: true });
-      inputField.dispatchEvent(changeEvent);
-      
-      console.log('TaskInputDemo: Set input value to', taskTitle);
-      
-      // Move to next step after a brief pause
-      const timeout = setTimeout(() => {
-        setStep(2);
-        highlightAddButton();
-      }, 1000);
-      
-      timeoutRefs.current.push(timeout);
+    // Remove existing highlights
+    document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight').forEach(el => {
+      el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight');
+    });
+    
+    // Add the specified highlight class
+    element.classList.add(className);
+    
+    // Ensure the element is visible
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  // Highlight input and prompt user
+  const highlightInput = () => {
+    const inputField = inputRef.current;
+    if (!inputField) return;
+    
+    // Add pulse highlight to attract attention
+    addSpotlightTo(inputField, 'tour-pulse-highlight');
+    
+    // Focus the input
+    inputField.focus();
+    
+    // Set waiting state
+    setWaitingForInput(true);
+    
+    // Show suggested text in a tooltip or nearby element
+    showSuggestion(inputField, suggestedTask);
+    
+    // Add input listener to detect when user types
+    const inputHandler = (e) => {
+      // If user has entered something, move to the next step
+      if (e.target.value.trim().length > 0) {
+        // As soon as user types something substantial, highlight the button
+        addSpotlightTo(inputField, 'tour-focus-highlight');
+        
+        // If user enters at least few characters, highlight the add button next
+        if (e.target.value.trim().length >= 5) {
+          setTimeout(() => {
+            highlightAddButton();
+          }, 500);
+        }
+      }
+    };
+    
+    inputField.addEventListener('input', inputHandler);
+    
+    // Store cleanup function
+    const cleanup = () => {
+      inputField.removeEventListener('input', inputHandler);
+      removeSuggestion();
+    };
+    
+    timeoutRefs.current.push(cleanup);
+  };
+
+  // Show suggestion tooltip
+  const showSuggestion = (element, suggestion) => {
+    // Create a suggestion element
+    const suggestionEl = document.createElement('div');
+    suggestionEl.className = 'tour-suggestion';
+    suggestionEl.textContent = `Suggested: "${suggestion}"`;
+    suggestionEl.style.position = 'absolute';
+    suggestionEl.style.padding = '8px 12px';
+    suggestionEl.style.background = 'rgba(55, 65, 81, 0.95)';
+    suggestionEl.style.color = 'white';
+    suggestionEl.style.borderRadius = '4px';
+    suggestionEl.style.fontSize = '14px';
+    suggestionEl.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    suggestionEl.style.zIndex = '9999';
+    suggestionEl.style.maxWidth = '250px';
+    suggestionEl.style.textAlign = 'center';
+    
+    // Position it below the element
+    const rect = element.getBoundingClientRect();
+    suggestionEl.style.position = 'fixed';
+    suggestionEl.style.top = `${rect.bottom + 10}px`;
+    suggestionEl.style.left = `${rect.left + rect.width / 2}px`;
+    suggestionEl.style.transform = 'translateX(-50%)';
+    
+    // Add to document
+    document.body.appendChild(suggestionEl);
+  };
+
+  // Remove suggestion tooltip
+  const removeSuggestion = () => {
+    const suggestionEl = document.querySelector('.tour-suggestion');
+    if (suggestionEl && suggestionEl.parentNode) {
+      suggestionEl.parentNode.removeChild(suggestionEl);
     }
   };
 
-  // Highlight the add button
+  // Highlight the add button after input
   const highlightAddButton = () => {
     const button = buttonRef.current;
+    if (!button) return;
     
-    if (button) {
-      // Remove highlight from input
-      const inputField = inputRef.current;
-      if (inputField) {
-        inputField.classList.remove('tour-highlight');
-      }
-      
-      // Add highlight to button
-      button.classList.add('tour-highlight');
-      
-      // Scroll to ensure button is visible
-      button.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      
-      // Get button position for cursor
-      const buttonPosition = getElementPosition(button);
-      
-      // Move cursor to button
-      moveCursor(buttonPosition, 1000, () => {
-        // Show click animation before clicking
-        setCursorClicking(true);
-        
-        // After a short delay, simulate click on the button
-        const timeout = setTimeout(() => {
-          handleAddTask();
-          setTimeout(() => setCursorClicking(false), 300);
-        }, 500);
-        
-        timeoutRefs.current.push(timeout);
-      });
-    }
-  };
-
-  // Handle adding the task
-  const handleAddTask = () => {
-    const button = buttonRef.current;
+    // No longer waiting for input
+    setWaitingForInput(false);
     
-    if (button) {
-      // Actually click the button
-      button.click();
-      console.log('TaskInputDemo: Clicked add button');
+    // Now waiting for button click
+    setWaitingForClick(true);
+    
+    // Add pulse highlight to button
+    addSpotlightTo(button, 'tour-pulse-highlight');
+    
+    // Listen for click event
+    const clickHandler = () => {
+      // User clicked the button
+      setWaitingForClick(false);
       
-      // Complete the demo
-      const timeout = setTimeout(() => {
-        // Clean up highlights
-        if (inputRef.current) {
-          inputRef.current.classList.remove('tour-highlight');
-        }
-        
-        if (buttonRef.current) {
-          buttonRef.current.classList.remove('tour-highlight');
-        }
-        
-        setIsComplete(true);
-        
-        // Wait a moment before proceeding to the next tour step
-        const nextTimeout = setTimeout(() => {
-          nextStep();
-        }, 500);
-        
-        timeoutRefs.current.push(nextTimeout);
+      // Remove highlights
+      button.classList.remove('tour-pulse-highlight');
+      
+      // Continue tour after a short delay
+      setTimeout(() => {
+        completeStep();
       }, 1000);
-      
-      timeoutRefs.current.push(timeout);
-    }
-  };
-
-  // Move cursor with animation
-  const moveCursor = (toPos, duration = 800, onFinish = null) => {
-    const startPos = { ...cursorPosition };
-    const startTime = Date.now();
-
-    const animate = () => {
-      const now = Date.now();
-      const progress = Math.min((now - startTime) / duration, 1);
-
-      // Cubic ease out for more natural movement
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-      const newX = startPos.x + (toPos.x - startPos.x) * easeProgress;
-      const newY = startPos.y + (toPos.y - startPos.y) * easeProgress;
-
-      setCursorPosition({ x: newX, y: newY });
-
-      if (progress < 1) {
-        const animFrame = requestAnimationFrame(animate);
-        const cancelAnimation = () => cancelAnimationFrame(animFrame);
-        timeoutRefs.current.push(cancelAnimation);
-      } else if (onFinish) {
-        onFinish();
-      }
     };
-
-    animate();
-  };
-
-  // Get element position for cursor
-  const getElementPosition = (element) => {
-    if (!element) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     
-    const rect = element.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 3,
-      y: rect.top + rect.height / 2
+    button.addEventListener('click', clickHandler, { once: true });
+    
+    // Store cleanup function
+    const cleanup = () => {
+      button.removeEventListener('click', clickHandler);
     };
+    
+    timeoutRefs.current.push(cleanup);
   };
 
-  // Run the demo
+  // Complete this tour step
+  const completeStep = () => {
+    // Remove all highlights
+    document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight').forEach(el => {
+      el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight');
+    });
+    
+    // Remove suggestion tooltip
+    removeSuggestion();
+    
+    setIsComplete(true);
+    
+    // Proceed to next step after a short delay
+    setTimeout(() => {
+      nextStep();
+    }, 500);
+  };
+
+  // Run the tour sequence
   const runDemo = () => {
-    // First locate and set up the elements
+    // Find and setup elements
     const { inputField, button } = findAndSetupElements();
     
-    if (!inputField || !button) {
-      console.error('TaskInputDemo: Could not find required elements');
+    if (!inputField) {
+      console.error('TaskInputDemo: Could not find input field');
+      // Skip to next step so tour isn't blocked
+      setTimeout(() => nextStep(), 1000);
       return;
     }
     
-    // Position cursor out of view initially
-    setCursorPosition({ x: -50, y: window.innerHeight / 2 });
+    if (!button) {
+      console.error('TaskInputDemo: Could not find add button');
+      // Skip to next step so tour isn't blocked
+      setTimeout(() => nextStep(), 1000);
+      return;
+    }
     
-    // Start by moving cursor to the input field
-    const inputPosition = getElementPosition(inputField);
-    
-    // Move cursor to input field
-    const timeout0 = setTimeout(() => {
-      moveCursor(inputPosition, 1000, () => {
-        // Start by highlighting the input field
-        highlightInput(inputField);
-        
-        // After a short delay, fill in the input
-        const timeout = setTimeout(() => {
-          setStep(1);
-          // Show click animation before typing
-          setCursorClicking(true);
-          setTimeout(() => setCursorClicking(false), 300);
-          handleTyping();
-        }, 500);
-        
-        timeoutRefs.current.push(timeout);
-      });
-    }, 500);
-    
-    timeoutRefs.current.push(timeout0);
+    // Start by highlighting the input field
+    setTimeout(() => {
+      setStep(1);
+      highlightInput();
+    }, 800);
   };
 
-  // Cleanup function
+  // Cleanup on unmount or when tour advances
   const cleanupDemo = () => {
     // Clear all timeouts
-    timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
+    timeoutRefs.current.forEach(timeoutId => {
+      if (typeof timeoutId === 'function') {
+        timeoutId(); // Execute cleanup function
+      } else {
+        clearTimeout(timeoutId); // Clear timeout
+      }
+    });
     timeoutRefs.current = [];
     
-    // Remove any highlights
-    if (inputRef.current) {
-      inputRef.current.classList.remove('tour-highlight');
-    }
-    
-    if (buttonRef.current) {
-      buttonRef.current.classList.remove('tour-highlight');
-    }
-    
-    // Remove any other highlights
-    document.querySelectorAll('.tour-highlight').forEach(el => {
-      el.classList.remove('tour-highlight');
+    // Remove highlights
+    document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight').forEach(el => {
+      el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight');
     });
+    
+    // Remove suggestion tooltip
+    removeSuggestion();
   };
 
-  // Initialize the demo
+  // Initialize the tour
   useEffect(() => {
+    // Add CSS for animations if not already present
+    if (!document.getElementById('tour-pulse-styles')) {
+      const style = document.createElement('style');
+      style.id = 'tour-pulse-styles';
+      style.textContent = `
+        @keyframes tour-pulse {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 0 0 4px rgba(59, 130, 246, 0.2); }
+          50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 0 8px rgba(59, 130, 246, 0.3); }
+        }
+        
+        .tour-pulse-highlight {
+          animation: tour-pulse 1.5s infinite !important;
+          outline: 2px solid rgba(59, 130, 246, 0.7) !important;
+          position: relative !important;
+          z-index: 9000 !important;
+        }
+        
+        .tour-focus-highlight {
+          outline: 2px solid rgba(59, 130, 246, 0.7) !important;
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
+          position: relative !important;
+          z-index: 9000 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
     // Start the demo after a short delay
     const timeout = setTimeout(() => {
       runDemo();
@@ -273,16 +289,8 @@ const TaskInputDemo = () => {
     };
   }, []);
 
-  // Render the cursor visualization
-  if (!cursorVisible) return null;
-  
-  return (
-    <TourCursor 
-      position={cursorPosition} 
-      clicking={cursorClicking} 
-      dragging={false} 
-    />
-  );
+  // No visual rendering, just guidance through DOM manipulation
+  return null;
 };
 
 export default TaskInputDemo;
