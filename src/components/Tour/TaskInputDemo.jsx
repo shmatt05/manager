@@ -64,7 +64,52 @@ const TaskInputDemo = () => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
-  // Highlight input and prompt user
+  // Simulate typing into input field
+  const simulateTyping = (text, onComplete) => {
+    const inputField = inputRef.current;
+    if (!inputField) return;
+    
+    // Focus the input field
+    inputField.focus();
+    
+    // Type each character with a slight delay
+    let currentIndex = 0;
+    let currentText = '';
+    
+    const typeNextChar = () => {
+      if (currentIndex < text.length) {
+        // Add next character
+        currentText += text[currentIndex];
+        
+        // Update input value
+        inputField.value = currentText;
+        
+        // Dispatch input event to update React state
+        const inputEvent = new Event('input', { bubbles: true });
+        inputField.dispatchEvent(inputEvent);
+        
+        // Dispatch change event
+        const changeEvent = new Event('change', { bubbles: true });
+        inputField.dispatchEvent(changeEvent);
+        
+        // Move to next character
+        currentIndex++;
+        
+        // Schedule next character with variable timing for realism
+        const typingDelay = 50 + Math.random() * 100;
+        const timeout = setTimeout(typeNextChar, typingDelay);
+        timeoutRefs.current.push(() => clearTimeout(timeout));
+      } else if (onComplete) {
+        // Typing complete, call callback
+        onComplete();
+      }
+    };
+    
+    // Start typing
+    typeNextChar();
+  };
+
+  // Highlight input and simulate typing
   const highlightInput = () => {
     const inputField = inputRef.current;
     if (!inputField) return;
@@ -75,74 +120,21 @@ const TaskInputDemo = () => {
     // Focus the input
     inputField.focus();
     
-    // Set waiting state
-    setWaitingForInput(true);
+    // Wait a moment then start typing
+    const timeout = setTimeout(() => {
+      // Remove the pulsing and add steady highlight
+      addSpotlightTo(inputField, 'tour-focus-highlight');
+      
+      // Simulate typing
+      simulateTyping(suggestedTask, () => {
+        // When typing is complete, highlight the button
+        highlightAddButton();
+      });
+    }, 1200);
     
-    // Show suggested text in a tooltip or nearby element
-    showSuggestion(inputField, suggestedTask);
-    
-    // Add input listener to detect when user types
-    const inputHandler = (e) => {
-      // If user has entered something, move to the next step
-      if (e.target.value.trim().length > 0) {
-        // As soon as user types something substantial, highlight the button
-        addSpotlightTo(inputField, 'tour-focus-highlight');
-        
-        // If user enters at least few characters, highlight the add button next
-        if (e.target.value.trim().length >= 5) {
-          setTimeout(() => {
-            highlightAddButton();
-          }, 500);
-        }
-      }
-    };
-    
-    inputField.addEventListener('input', inputHandler);
-    
-    // Store cleanup function
-    const cleanup = () => {
-      inputField.removeEventListener('input', inputHandler);
-      removeSuggestion();
-    };
-    
-    timeoutRefs.current.push(cleanup);
+    timeoutRefs.current.push(() => clearTimeout(timeout));
   };
 
-  // Show suggestion tooltip
-  const showSuggestion = (element, suggestion) => {
-    // Create a suggestion element
-    const suggestionEl = document.createElement('div');
-    suggestionEl.className = 'tour-suggestion';
-    suggestionEl.textContent = `Suggested: "${suggestion}"`;
-    suggestionEl.style.position = 'absolute';
-    suggestionEl.style.padding = '8px 12px';
-    suggestionEl.style.background = 'rgba(55, 65, 81, 0.95)';
-    suggestionEl.style.color = 'white';
-    suggestionEl.style.borderRadius = '4px';
-    suggestionEl.style.fontSize = '14px';
-    suggestionEl.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    suggestionEl.style.zIndex = '9999';
-    suggestionEl.style.maxWidth = '250px';
-    suggestionEl.style.textAlign = 'center';
-    
-    // Position it below the element
-    const rect = element.getBoundingClientRect();
-    suggestionEl.style.position = 'fixed';
-    suggestionEl.style.top = `${rect.bottom + 10}px`;
-    suggestionEl.style.left = `${rect.left + rect.width / 2}px`;
-    suggestionEl.style.transform = 'translateX(-50%)';
-    
-    // Add to document
-    document.body.appendChild(suggestionEl);
-  };
-
-  // Remove suggestion tooltip
-  const removeSuggestion = () => {
-    const suggestionEl = document.querySelector('.tour-suggestion');
-    if (suggestionEl && suggestionEl.parentNode) {
-      suggestionEl.parentNode.removeChild(suggestionEl);
-    }
-  };
 
   // Highlight the add button after input
   const highlightAddButton = () => {
@@ -219,6 +211,11 @@ const TaskInputDemo = () => {
       return;
     }
     
+    // Clear any existing value in the input field
+    inputField.value = '';
+    const clearEvent = new Event('input', { bubbles: true });
+    inputField.dispatchEvent(clearEvent);
+    
     // Start by highlighting the input field
     setTimeout(() => {
       setStep(1);
@@ -242,9 +239,6 @@ const TaskInputDemo = () => {
     document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight').forEach(el => {
       el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight');
     });
-    
-    // Remove suggestion tooltip
-    removeSuggestion();
   };
 
   // Initialize the tour
