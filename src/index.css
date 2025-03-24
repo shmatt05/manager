@@ -327,11 +327,6 @@ input, textarea, select {
   @apply flex items-start;
 }
 
-.tour-dialog-content li::before {
-  content: "";
-  @apply inline-block w-2 h-2 bg-primary-500 rounded-full mt-1.5 mr-2 flex-shrink-0;
-}
-
 .tour-dialog-content p {
   @apply mb-3;
 }
@@ -578,4 +573,109 @@ input, textarea, select {
   z-index: 99999 !important;
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)) !important;
   pointer-events: none !important;
+}
+
+/* New tour highlight styles for using real elements */
+.tour-highlight {
+  outline: 3px solid rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  position: relative !important;
+  z-index: 9000 !important;
+  animation: tour-pulse 2s infinite ease-in-out !important;
+}
+
+.tour-card-highlight {
+  outline: 3px solid rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  position: relative !important;
+  z-index: 9000 !important;
+  animation: tour-pulse 2s infinite ease-in-out !important;
+}
+
+.tour-task-highlight {
+  outline: 3px solid rgba(79, 70, 229, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3), 0 0 15px rgba(79, 70, 229, 0.3) !important;
+  position: relative !important;
+  z-index: 9000 !important;
+}
+
+.tour-drag-pulse {
+  animation: tour-pulse 1.5s infinite ease-in-out !important;
+}
+
+@keyframes tour-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3), 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.5), 0 0 25px rgba(59, 130, 246, 0.5) !important;
+  }
+}
+
+/* Tour click pulse effect */
+.tour-click-pulse {
+  z-index: 9999 !important;
+  pointer-events: none !important;
+  position: fixed !important;
+}
+
+/* Tour arrow indicator for pointing to elements */
+.tour-arrow-indicator {
+  z-index: 9999 !important;
+  pointer-events: none !important;
+}
+
+/* Tour drag path indicator */
+.tour-drag-indicator {
+  pointer-events: none !important;
+  z-index: 9999 !important;
+}
+
+/* Active elements during tour */
+.tour-active [data-tour-interaction="enabled"],
+.tour-allow-interaction {
+  position: relative !important;
+  z-index: 9010 !important;
+  pointer-events: auto !important;
+}
+
+/* Styles for the task modal during tour */
+.tour-active .task-modal,
+.tour-active div[role="dialog"],
+.tour-active [data-tour-id="task-modal"] {
+  z-index: 9900 !important;
+  position: fixed !important;
+  top: 50% !important;
+  left: calc(50% + 150px) !important; /* Offset to the right to avoid the tour dialog */
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Ensure task modal contents are properly visible and interactive */
+.tour-allow-interaction button,
+.tour-allow-interaction input,
+.tour-allow-interaction textarea,
+.tour-allow-interaction select,
+.tour-allow-interaction [role="tab"],
+.tour-allow-interaction a {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Make sure buttons are clickable during tour */
+.tour-button-active, 
+button[data-tour-interaction="enabled"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+/* Focus highlight style */
+.tour-focus-highlight {
+  outline: 2px solid rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
+  position: relative !important;
+  z-index: 9050 !important;
+  animation: highlight-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
 }

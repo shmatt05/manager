@@ -30,6 +30,8 @@ const TourTaskMoveDemo = () => {
     if (doQuadrant) {
       doQuadrant.setAttribute('data-tour-id', 'urgent-important-quadrant');
       doQuadrant.classList.add('tour-source-highlight');
+      // Make sure the quadrant is interactable
+      doQuadrant.setAttribute('data-tour-interaction', 'enabled');
     }
     
     // Find the "Delegate" quadrant (urgent & not important)
@@ -41,6 +43,8 @@ const TourTaskMoveDemo = () => {
     if (delegateQuadrant) {
       delegateQuadrant.setAttribute('data-tour-id', 'urgent-not-important-quadrant');
       delegateQuadrant.classList.add('tour-target-highlight');
+      // Make sure the target quadrant is interactable
+      delegateQuadrant.setAttribute('data-tour-interaction', 'enabled');
     }
     
     return { doQuadrant, delegateQuadrant };
@@ -58,21 +62,32 @@ const TourTaskMoveDemo = () => {
     // Add a data attribute for easier reference
     taskCard.setAttribute('data-tour-id', 'draggable-task');
     
+    // Make sure the task is interactable
+    taskCard.setAttribute('data-tour-interaction', 'enabled');
+    
     // Add highlight to make it stand out
     taskCard.classList.add('tour-task-highlight');
     taskCard.classList.add('tour-drag-pulse');
     
+    // Store a reference to the task
     taskRef.current = taskCard;
     
     // Get task dimensions and position
     const rect = taskCard.getBoundingClientRect();
+    
+    // Make sure the task is draggable
+    taskCard.setAttribute('draggable', 'true');
+    
+    // Make sure the task card is visible above the tour overlay
+    taskCard.style.zIndex = '9000';
+    taskCard.style.position = 'relative';
     
     return {
       element: taskCard,
       rect,
       centerX: rect.left + rect.width / 2,
       centerY: rect.top + rect.height / 2,
-      id: taskCard.id || 'draggable-task'
+      id: taskCard.id || taskCard.getAttribute('data-id') || 'draggable-task'
     };
   };
 
@@ -391,7 +406,33 @@ const TourTaskMoveDemo = () => {
     // Remove all highlights and indicators
     document.querySelectorAll('.tour-source-highlight, .tour-target-highlight, .tour-task-highlight, .tour-drag-pulse').forEach(el => {
       el.classList.remove('tour-source-highlight', 'tour-target-highlight', 'tour-task-highlight', 'tour-drag-pulse');
+      
+      // Clean up interactivity attributes
+      if (el.getAttribute('data-tour-interaction') === 'enabled') {
+        el.removeAttribute('data-tour-interaction');
+      }
+      
+      // Reset any position/z-index styles we set
+      if (el.classList.contains('task-card')) {
+        el.style.zIndex = '';
+        el.style.position = '';
+      }
     });
+    
+    // Clean up task that was being dragged
+    if (taskRef.current) {
+      taskRef.current.classList.remove('tour-task-highlight', 'tour-drag-pulse', 'tour-dragging');
+      taskRef.current.removeAttribute('data-tour-interaction');
+      taskRef.current.style.zIndex = '';
+      taskRef.current.style.position = '';
+      taskRef.current.style.opacity = '';
+      
+      // Reset draggable attribute to what it was before
+      // Some frameworks may handle this themselves, so we make it conditional
+      if (taskRef.current.getAttribute('draggable') === 'true') {
+        taskRef.current.removeAttribute('draggable');
+      }
+    }
     
     // Remove drag path indicator
     if (pathIndicatorRef.current && pathIndicatorRef.current.parentNode) {
@@ -404,6 +445,11 @@ const TourTaskMoveDemo = () => {
       if (el.parentNode) {
         el.parentNode.removeChild(el);
       }
+    });
+    
+    // Remove any quadrant highlights
+    document.querySelectorAll('[data-tour-id="urgent-important-quadrant"], [data-tour-id="urgent-not-important-quadrant"]').forEach(el => {
+      el.removeAttribute('data-tour-interaction');
     });
   };
 

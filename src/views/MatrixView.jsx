@@ -403,7 +403,14 @@ export default function MatrixView({
         tasksCount: e.detail?.tasks?.length,
         hasDemoTasks: !!e.detail?.tasks
       });
-      setDemoData(e.detail);
+      
+      // Ensure demoData always has a tasks array
+      const demoDataWithTasks = {
+        ...(e.detail || {}),
+        tasks: e.detail?.tasks || [] // Ensure tasks is always an array
+      };
+      
+      setDemoData(demoDataWithTasks);
     };
     
     const handleTourEnd = () => {
@@ -416,7 +423,14 @@ export default function MatrixView({
         tasksCount: e.detail?.tasks?.length,
         hasDemoTasks: !!e.detail?.tasks
       });
-      setDemoData(e.detail);
+      
+      // Ensure demoData always has a tasks array
+      const updatedDemoData = {
+        ...(e.detail || {}),
+        tasks: e.detail?.tasks || [] // Ensure tasks is always an array
+      };
+      
+      setDemoData(updatedDemoData);
     };
     
     window.addEventListener('tour:start', handleTourStart);
@@ -439,9 +453,9 @@ export default function MatrixView({
       regularTasksCount: tasks?.length
     });
     if (active && demoData) {
-      return demoData.tasks;
+      return demoData.tasks || [];
     }
-    return tasks;
+    return tasks || [];
   }, [active, demoData, tasks]);
   
   // Update localTasks when displayTasks changes
@@ -450,7 +464,7 @@ export default function MatrixView({
       displayTasksCount: displayTasks?.length,
       hasTasks: !!displayTasks
     });
-    setLocalTasks(displayTasks);
+    setLocalTasks(displayTasks || []);
   }, [displayTasks]);
 
   const quadrantTasks = useMemo(() => {
@@ -467,11 +481,27 @@ export default function MatrixView({
       'backlog': []
     };
 
-    const tasksToSort = active && demoData ? demoData.tasks : localTasks;
+    const tasksToSort = active && demoData ? (demoData.tasks || []) : (localTasks || []);
+    
+    // Check if tasksToSort is defined and is an array before proceeding
+    if (!tasksToSort || !Array.isArray(tasksToSort)) {
+      console.warn('MatrixView: tasksToSort is undefined or not an array', { 
+        isDefined: !!tasksToSort, 
+        isArray: Array.isArray(tasksToSort),
+        active,
+        hasDemoData: !!demoData 
+      });
+      return sorted; // Return empty sorted object
+    }
 
-    tasksToSort
-      .filter(task => task.status !== 'completed')
-      .forEach(task => {
+    // Use a safe filter operation
+    const nonCompletedTasks = tasksToSort.filter(task => task && task.status !== 'completed');
+    
+    // Only proceed if we have tasks
+    if (nonCompletedTasks && nonCompletedTasks.length > 0) {
+      nonCompletedTasks.forEach(task => {
+        if (!task) return; // Skip undefined/null tasks
+        
         if (task.scheduledFor === 'tomorrow') {
           sorted['backlog'].push(task);
           return;
@@ -490,7 +520,7 @@ export default function MatrixView({
 
         // For regular tasks, use priority and tags
         const isUrgent = task.priority <= 2;
-        const isImportant = task.tags.includes('important');
+        const isImportant = Array.isArray(task.tags) && task.tags.includes('important');
         
         const quadrant = 
           isUrgent && isImportant ? 'urgent-important' :
@@ -500,6 +530,7 @@ export default function MatrixView({
         
         sorted[quadrant].push(task);
       });
+    }
 
     console.log('MatrixView: Quadrant tasks distribution', {
       urgentImportant: sorted['urgent-important'].length,

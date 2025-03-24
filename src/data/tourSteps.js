@@ -1,5 +1,7 @@
 import TourTaskMoveDemo from '../components/Tour/TourTaskMoveDemo';
 import TaskInputDemo from '../components/Tour/TaskInputDemo';
+import BacklogTourDemo from '../components/Tour/BacklogTourDemo';
+import TaskModalDemo from '../components/Tour/TaskModalDemo';
 
 /**
  * Tour steps configuration
@@ -32,7 +34,7 @@ const tourSteps = [
       
       <p>The matrix divides your tasks into four quadrants:</p>
       
-      <ul>
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span><strong>Do</strong> (Urgent & Important): Tasks that require immediate attention</span>
         </li>
@@ -52,15 +54,15 @@ const tourSteps = [
     target: 'body',
     position: 'center'
   },
-  
+
   // Creating Tasks
   {
     id: 'creating-tasks',
     title: 'Creating New Tasks',
     content: `
-      <p class="mb-4">Adding tasks is simple and flexible:</p>
+      <p class="mb-4">I'll help you add a task. Watch the form as it's filled in and submitted:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span>Type your task in the input field and click the "Add" button</span>
         </li>
@@ -72,23 +74,28 @@ const tourSteps = [
         </li>
       </ul>
       
-      <p class="italic text-gray-600 dark:text-gray-400">Watch as we add a task with the #do hashtag to place it in the "Do" quadrant.</p>
+      <p class="italic text-gray-600 dark:text-gray-400">We'll add "Board Meeting Presentation #do" to place it in the "Do" quadrant.</p>
     `,
     target: 'form input[type="text"]',
-    position: 'right', // Position to the right of the input field
-    dialogPosition: { bottom: 'auto', left: 'auto', top: '100px', right: '20px', transform: 'none' }, // Far right position with fixed distance from top
-    dialogOffset: { x: 20, y: 0 }, // Add extra space between input and dialog
-    disableOverlay: true, // Use the minimal overlay
+    position: 'right',
+    dialogPosition: { bottom: 'auto', left: 'auto', top: '100px', right: '20px', transform: 'none' },
+    dialogOffset: { x: 20, y: 0 },
+    disableOverlay: true,
     disableSpotlight: true,
-    // Allow interaction only with the form itself for the demo
-    allowInteractionAt: { 
-      calculateDynamically: true, // Flag to recalculate this on mount
-      selector: 'form', // Calculate position based on this element
-      padding: 20 // Add padding around the element
+    allowInteractionAt: {
+      calculateDynamically: true,
+      selector: 'form',
+      padding: 20
     },
-    component: TaskInputDemo
+    component: TaskInputDemo,
+    onHide: () => {
+      // Remove any highlight classes when leaving this step
+      document.querySelectorAll('.tour-highlight').forEach(el => {
+        el.classList.remove('tour-highlight');
+      });
+    }
   },
-  
+
   {
     id: 'task-parsing-tricks',
     title: 'Smart Task Parsing',
@@ -97,7 +104,7 @@ const tourSteps = [
       
       <div class="grid grid-cols-2 gap-2 mb-4">
         <div>
-          <ul class="space-y-2">
+          <ul class="list-none space-y-2">
             <li class="flex items-start">
               ${bulletStyles.do}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#important</code> - Marks as important</span>
             </li>
@@ -110,7 +117,7 @@ const tourSteps = [
           </ul>
         </div>
         <div>
-          <ul class="space-y-2">
+          <ul class="list-none space-y-2">
             <li class="flex items-start">
               ${bulletStyles.delegate}<span><code class="bg-gray-200 dark:bg-gray-700 px-1 rounded text-gray-800 dark:text-gray-200">#delegate</code> - "Delegate" quadrant</span>
             </li>
@@ -133,14 +140,14 @@ const tourSteps = [
     position: 'bottom',
     dialogOffset: { x: 0, y: 20 }
   },
-  
+
   {
     id: 'task-card',
     title: 'Task Card Features',
     content: `
       <p class="mb-4">Each task card contains key information at a glance:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span>Title and description</span>
         </li>
@@ -163,7 +170,6 @@ const tourSteps = [
     target: '[data-tour-id="urgent-important-quadrant"]',
     position: 'right',
     onShow: () => {
-      // Highlight a task card in the first quadrant if available
       setTimeout(() => {
         const quadrant = document.querySelector('[data-tour-id="urgent-important-quadrant"]');
         if (quadrant) {
@@ -175,20 +181,19 @@ const tourSteps = [
       }, 100);
     },
     onHide: () => {
-      // Remove highlight from all task cards
       document.querySelectorAll('.tour-target-highlight').forEach(el => {
         el.classList.remove('tour-target-highlight');
       });
     }
   },
-  
+
   {
     id: 'moving-tasks',
     title: 'Moving Tasks Between Quadrants',
     content: `
-      <p class="mb-4">As priorities change, you can easily move tasks:</p>
+      <p class="mb-4">Now I'll demonstrate how to move tasks between quadrants:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span>Drag and drop tasks between quadrants</span>
         </li>
@@ -200,23 +205,37 @@ const tourSteps = [
         </li>
       </ul>
       
-      <p class="italic text-gray-600 dark:text-gray-400">Watch as we move a task from "Do" to "Delegate" by dragging.</p>
+      <p class="italic text-gray-600 dark:text-gray-400">Follow the highlighted task from "Do" to "Delegate". You can drag it yourself or watch as it moves automatically.</p>
     `,
     target: 'body',
     position: 'bottom',
     dialogPosition: { bottom: 'auto', right: '20px', top: '20px', left: 'auto', transform: 'none' },
     disableOverlay: true,
-    // Don't allow any interactions with the matrix for this one
-    component: TourTaskMoveDemo
+    allowInteractionAt: {
+      calculateDynamically: true,
+      selector: '[data-tour-id="urgent-important-quadrant"], [data-tour-id="urgent-not-important-quadrant"]',
+      padding: 50
+    },
+    component: TourTaskMoveDemo,
+    onHide: () => {
+      // Remove any highlight classes when leaving this step
+      document.querySelectorAll('.tour-source-highlight, .tour-target-highlight, .tour-task-highlight, .tour-drag-pulse, .tour-drag-indicator').forEach(el => {
+        if (el.classList) {
+          el.classList.remove('tour-source-highlight', 'tour-target-highlight', 'tour-task-highlight', 'tour-drag-pulse');
+        } else if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+    }
   },
-  
+
   {
     id: 'backlog',
     title: 'The Backlog Section',
     content: `
       <p class="mb-4">The Backlog is your holding area for future tasks:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.backlog}<span>Store tasks you'll work on later</span>
         </li>
@@ -232,16 +251,33 @@ const tourSteps = [
     `,
     target: '[data-tour-id="backlog-section"]',
     position: 'top',
+    disableOverlay: true,
+    allowInteractionAt: {
+      calculateDynamically: true,
+      selector: '[data-tour-id="backlog-section"]',
+      padding: 20
+    },
+    component: BacklogTourDemo,
+    onHide: () => {
+      // Remove any highlight classes when leaving this step
+      document.querySelectorAll('.tour-target-highlight, .tour-glow-highlight, .tour-arrow-indicator').forEach(el => {
+        if (el.classList) {
+          el.classList.remove('tour-target-highlight', 'tour-glow-highlight');
+        } else if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+    }
   },
-  
+
   // Task Modal
   {
     id: 'task-modal',
     title: 'Task Details Modal',
     content: `
-      <p class="mb-4">The task modal provides comprehensive task management:</p>
+      <p class="mb-4">Click on a task card to view and edit all its details:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span>View and edit all task details</span>
         </li>
@@ -252,31 +288,63 @@ const tourSteps = [
           ${bulletStyles.delegate}<span>Add tags and due dates</span>
         </li>
         <li class="flex items-start">
-          ${bulletStyles.backlog}<span>Track task history</span>
+          ${bulletStyles.backlog}<span>Track task history in the History tab</span>
         </li>
       </ul>
       
-      <p>Access this by clicking on any task or when creating a new one.</p>
+      <p class="italic text-gray-600 dark:text-gray-400">Try clicking the highlighted task card. You can then interact with the modal that opens.</p>
     `,
     target: '[data-tour-id="task-modal"]',
-    position: 'center',
-    onShow: () => {
-      // Find the task modal element and trigger event
-      const taskModal = document.querySelector('[data-tour-id="task-modal"]');
-      if (taskModal) {
-        // Create a custom event to trigger the modal
-        const event = new CustomEvent('tour:show-task-modal');
-        document.dispatchEvent(event);
+    position: 'right',
+    dialogPosition: { bottom: 'auto', left: '20px', top: '100px', right: 'auto', transform: 'none', maxWidth: '350px' },
+    dialogOffset: { x: 0, y: 0 },
+    disableOverlay: true,
+    disableSpotlight: true,
+    allowInteractionAt: {
+      calculateDynamically: true,
+      selector: '.task-card, .task-modal, div[role="dialog"]',
+      padding: 50
+    },
+    component: TaskModalDemo,
+    onHide: () => {
+      // Try to close the modal when moving to next step
+      const closeButton = document.querySelector('.task-modal .close-button') ||
+        document.querySelector('.modal .close-button') ||
+        document.querySelector('.task-modal button[aria-label="Close"]') ||
+        document.querySelector('.modal button[aria-label="Close"]') ||
+        document.querySelector('div[role="dialog"] button:first-of-type');
+      
+      if (closeButton) {
+        try {
+          closeButton.click();
+          console.log('Tour: Closed task modal');
+        } catch (err) {
+          console.error('Tour: Error closing task modal:', err);
+        }
       }
+      
+      // Remove any highlight classes
+      document.querySelectorAll('.tour-card-highlight, .tour-click-pulse, .tour-click-instructions, .tour-focus-highlight').forEach(el => {
+        if (el.classList) {
+          el.classList.remove('tour-card-highlight', 'tour-focus-highlight');
+        } else if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+      
+      // Clean up interaction attributes
+      document.querySelectorAll('[data-tour-interaction="enabled"]').forEach(el => {
+        el.removeAttribute('data-tour-interaction');
+      });
     }
   },
-  
+
   {
     id: 'quick-actions',
     title: 'Quick Actions',
     content: `
       <p>Efficiency is built into every interaction:</p>
-      <ul>
+      <ul class="list-none">
         <li>Hover actions for common operations</li>
         <li>Keyboard shortcuts for power users</li>
         <li>Batch operations for multiple tasks</li>
@@ -286,14 +354,14 @@ const tourSteps = [
     target: '[data-tour-id="task-card"]',
     position: 'bottom',
   },
-  
+
   // Completed Tasks View
   {
     id: 'completed-view',
     title: 'Completed Tasks View',
     content: `
       <p>Track your accomplishments in the Completed view:</p>
-      <ul>
+      <ul class="list-none">
         <li>See all completed tasks in one place</li>
         <li>Filter by date, quadrant, or tags</li>
         <li>Restore tasks if needed</li>
@@ -305,14 +373,14 @@ const tourSteps = [
     position: 'center',
     disableSpotlight: true,
   },
-  
+
   // History View
   {
     id: 'history-overview',
     title: 'Task History Overview',
     content: `
       <p>The History view provides insights into your task patterns:</p>
-      <ul>
+      <ul class="list-none">
         <li>Track all task changes over time</li>
         <li>See when tasks were created, modified, or completed</li>
         <li>Understand how your priorities have shifted</li>
@@ -323,7 +391,7 @@ const tourSteps = [
     position: 'center',
     disableSpotlight: true,
   },
-  
+
   // Conclusion
   {
     id: 'conclusion',
@@ -333,7 +401,7 @@ const tourSteps = [
       
       <p class="mb-4">You now have the knowledge to:</p>
       
-      <ul class="space-y-3 mb-4">
+      <ul class="list-none space-y-3 mb-4">
         <li class="flex items-start">
           ${bulletStyles.do}<span>Effectively prioritize tasks using the Eisenhower Matrix</span>
         </li>

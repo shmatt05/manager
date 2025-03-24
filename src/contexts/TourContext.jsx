@@ -87,11 +87,64 @@ export const TourProvider = ({ children }) => {
     // Disable scrolling on the body when tour is active
     document.body.style.overflow = 'hidden';
     
-    // Add tour-active class to body to prevent interactions
-    document.body.classList.add('tour-active');
+    // Add tour-active class to body and allow-interaction for more interactivity
+    document.body.classList.add('tour-active', 'tour-allow-interaction');
     
-    // Dispatch tour:start event
-    window.dispatchEvent(new CustomEvent('tour:start'));
+    // Create some demo tasks for the tour
+    const demoTasks = [
+      {
+        id: 'demo-task-1',
+        title: 'Prepare for weekly meeting',
+        description: 'Collect status updates and prepare slides',
+        priority: 1,
+        tags: ['important', 'do'],
+        status: 'todo',
+        quadrant: 'q1', // Do quadrant
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'demo-task-2',
+        title: 'Review project proposal',
+        description: 'Read through and comment on the new project proposal',
+        priority: 3,
+        tags: ['important', 'schedule'],
+        status: 'todo',
+        quadrant: 'q2', // Schedule quadrant
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'demo-task-3',
+        title: 'Answer emails',
+        description: 'Respond to pending emails from clients',
+        priority: 2,
+        tags: ['delegate'],
+        status: 'todo',
+        quadrant: 'q3', // Delegate quadrant
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'demo-task-4',
+        title: 'Browse social media',
+        description: 'Check updates on Twitter and LinkedIn',
+        priority: 4,
+        tags: ['eliminate'],
+        status: 'todo',
+        quadrant: 'q4', // Eliminate quadrant
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+    
+    // Dispatch tour:start event with demo tasks
+    window.dispatchEvent(new CustomEvent('tour:start', {
+      detail: { 
+        allowRealFormSubmissions: true,
+        tasks: demoTasks || [] // Ensure we never send undefined
+      }
+    }));
   };
 
   // End the tour
@@ -103,8 +156,8 @@ export const TourProvider = ({ children }) => {
     // Re-enable scrolling
     document.body.style.overflow = '';
     
-    // Remove tour-active class from body
-    document.body.classList.remove('tour-active');
+    // Remove tour classes from body
+    document.body.classList.remove('tour-active', 'tour-allow-interaction');
     
     // Clean up any lingering tour elements
     const tourElements = document.querySelectorAll('[data-tour-id]');
@@ -118,6 +171,15 @@ export const TourProvider = ({ children }) => {
     if (draggedTask) {
       draggedTask.remove();
     }
+    
+    // Remove any tour highlights or indicators
+    document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight, .tour-source-highlight, .tour-target-highlight, .tour-task-highlight, .tour-drag-pulse, .tour-drag-indicator, .tour-drag-instructions').forEach(el => {
+      if (el.classList) {
+        el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight', 'tour-source-highlight', 'tour-target-highlight', 'tour-task-highlight', 'tour-drag-pulse');
+      } else if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
     
     // Dispatch tour:end event
     window.dispatchEvent(new CustomEvent('tour:end'));
@@ -133,8 +195,17 @@ export const TourProvider = ({ children }) => {
     // Re-enable scrolling
     document.body.style.overflow = '';
     
-    // Remove tour-active class from body
-    document.body.classList.remove('tour-active');
+    // Remove tour classes from body
+    document.body.classList.remove('tour-active', 'tour-allow-interaction');
+    
+    // Remove any tour highlights or indicators
+    document.querySelectorAll('.tour-highlight, .tour-pulse-highlight, .tour-focus-highlight, .tour-source-highlight, .tour-target-highlight, .tour-task-highlight, .tour-drag-pulse, .tour-drag-indicator, .tour-drag-instructions').forEach(el => {
+      if (el.classList) {
+        el.classList.remove('tour-highlight', 'tour-pulse-highlight', 'tour-focus-highlight', 'tour-source-highlight', 'tour-target-highlight', 'tour-task-highlight', 'tour-drag-pulse');
+      } else if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
     
     // Dispatch tour:end event
     window.dispatchEvent(new CustomEvent('tour:end'));
@@ -145,6 +216,18 @@ export const TourProvider = ({ children }) => {
     if (currentStepIndex < totalSteps - 1) {
       const nextIndex = currentStepIndex + 1;
       console.log('Going to next step:', nextIndex);
+      
+      // Check if we're going to the backlog step
+      const nextStep = tourSteps[nextIndex];
+      if (nextStep && nextStep.id === 'backlog') {
+        console.log('TourContext: Moving to backlog step, scrolling to bottom');
+        // Pre-scroll to bottom to ensure backlog is visible
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+      
       setCurrentStepIndex(nextIndex);
       setStepHistory([...stepHistory, nextIndex]);
     } else {
@@ -234,12 +317,53 @@ export const TourProvider = ({ children }) => {
     };
   }, [active, currentStepIndex]);
 
+  // Set up event handlers for tour demo interactions
+  useEffect(() => {
+    if (active) {
+      // Listen for custom events from tour demos
+      const handleMoveTask = (e) => {
+        console.log('TourContext: Received task move request event', e.detail);
+        if (e.detail && e.detail.taskId && e.detail.targetQuadrantId) {
+          // Dispatch event for completion
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('tour:move-complete'));
+          }, 800);
+        }
+      };
+      
+      // Listen for show task modal requests
+      const handleShowTaskModal = (e) => {
+        console.log('TourContext: Received show task modal request', e.detail);
+        // After the modal is shown, dispatch an event for completion
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('tour:modal-opened'));
+        }, 500);
+      };
+      
+      // Add event listeners
+      document.addEventListener('tour:move-task', handleMoveTask);
+      document.addEventListener('tour:show-task-modal', handleShowTaskModal);
+      
+      // Clean up on tour state change
+      return () => {
+        document.removeEventListener('tour:move-task', handleMoveTask);
+        document.removeEventListener('tour:show-task-modal', handleShowTaskModal);
+      };
+    }
+  }, [active]);
+
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
       document.body.classList.remove('tour-active');
+      
+      // Clean up any tour event listeners
+      document.removeEventListener('tour:move-task', () => {});
+      document.removeEventListener('tour:show-task-modal', () => {});
+      document.removeEventListener('tour:move-complete', () => {});
+      document.removeEventListener('tour:modal-opened', () => {});
     };
   }, []);
 
