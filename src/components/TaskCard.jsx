@@ -71,20 +71,20 @@ const priorityColors = {
 function Ripple({ active }) {
   const [ripples, setRipples] = useState([]);
   const timeoutRef = useRef(null);
-  
+
   useEffect(() => {
     if (ripples.length > 0) {
       // Clear any existing timeout to prevent multiple clean-ups
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      
+
       // Set new timeout
       timeoutRef.current = setTimeout(() => {
         setRipples([]);
         timeoutRef.current = null;
       }, 500); // Reduced timeout to 500ms
-      
+
       return () => {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
@@ -93,7 +93,7 @@ function Ripple({ active }) {
       };
     }
   }, [ripples]);
-  
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -107,20 +107,20 @@ function Ripple({ active }) {
     // Prevent double-triggers
     if (e.defaultPrevented) return;
     e.preventDefault();
-    
+
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height);
     const x = e.clientX - rect.left - size / 2;
     const y = e.clientY - rect.top - size / 2;
-    
+
     const newRipple = {
       x,
       y,
       size,
       id: Date.now()
     };
-    
+
     // Reset ripples before adding a new one to prevent double animations
     setRipples([newRipple]);
   };
@@ -158,19 +158,19 @@ export default function TaskCard({
     id: task.id,
     data: { task }
   });
-  
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
-  
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef(null);
   const { title, description, priority, status, dueDate, tags = [] } = task;
   const isCompleted = status === 'completed';
-  
+
   // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -178,16 +178,16 @@ export default function TaskCard({
         setMenuOpen(false);
       }
     }
-    
+
     function handleScroll() {
       setMenuOpen(false);
     }
-    
+
     if (menuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('scroll', handleScroll, true); // Use capture phase to catch all scroll events
       window.addEventListener('resize', handleScroll);
-      
+
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
         document.removeEventListener('scroll', handleScroll, true);
@@ -195,35 +195,35 @@ export default function TaskCard({
       };
     }
   }, [menuOpen]);
-  
+
   const handleContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation(); // Stop event propagation
-    
+
     // Calculate position based on available space
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     const menuHeight = 280; // Approximate height of the menu
     const menuWidth = 180; // Approximate width of the menu
-    
+
     // Default position at cursor
     let x = e.clientX;
     let y = e.clientY;
-    
+
     // Check if menu would go off the bottom of the screen
     if (y + menuHeight > viewportHeight) {
       y = Math.max(y - menuHeight, 10); // Position above cursor, but not off the top
     }
-    
+
     // Check if menu would go off the right of the screen
     if (x + menuWidth > viewportWidth) {
       x = Math.max(x - menuWidth, 10); // Position to the left of cursor, but not off the left
     }
-    
+
     setMenuPosition({ x, y });
     setMenuOpen(true);
   };
-  
+
   const handleMoveToQuadrant = (e, quadrant) => {
     e.preventDefault();
     e.stopPropagation();
@@ -258,25 +258,36 @@ export default function TaskCard({
       <div className="flex items-start gap-1">
         {/* Priority indicator */}
         <div className={`w-1 self-stretch rounded-sm ${priorityColors[priority]?.accent || 'bg-surface-200'} ${priorityColors[priority]?.darkAccent || 'dark:bg-dark-surface-6'}`}></div>
-        
+
         <div className="flex-1 min-w-0">
           {/* Title */}
           <div className="flex items-start justify-between gap-1">
-            <h3 className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}>
-              {title}
-            </h3>
-            
+            <div className="flex items-start gap-1">
+              <h3 className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}>
+                {title}
+              </h3>
+              {description && description.trim() !== '' && (
+                <DocumentTextIcon className="w-3 h-3 flex-shrink-0 text-surface-500 dark:text-dark-text-secondary mt-0.5" />
+              )}
+            </div>
+
             {/* Due date */}
             {dueDate && (
               <div className="flex items-center text-xs whitespace-nowrap select-none">
                 <ClockIcon className="w-3 h-3 mr-0.5 flex-shrink-0" />
-                <span className={`${isPast(parseISO(dueDate)) && !isCompleted ? 'text-error' : 'text-surface-500 dark:text-dark-text-secondary'}`}>
-                  {format(parseISO(dueDate), 'h:mm a')}
-                </span>
+                {typeof dueDate === 'string' ? (
+                  <span className={`${isPast(parseISO(dueDate)) && !isCompleted ? 'text-error' : 'text-surface-500 dark:text-dark-text-secondary'}`}>
+                    {format(parseISO(dueDate), 'h:mm a')}
+                  </span>
+                ) : (
+                  <span className={`${isPast(dueDate) && !isCompleted ? 'text-error' : 'text-surface-500 dark:text-dark-text-secondary'}`}>
+                    {format(dueDate, 'h:mm a')}
+                  </span>
+                )}
               </div>
             )}
           </div>
-          
+
           {/* Tags */}
           {tags && tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
@@ -296,7 +307,7 @@ export default function TaskCard({
             </div>
           )}
         </div>
-        
+
         {/* Action buttons */}
         <div className="flex items-center">
           <button 
@@ -323,7 +334,7 @@ export default function TaskCard({
           </button>
         </div>
       </div>
-      
+
       {/* Context menu */}
       {menuOpen && createPortal(
         <div 
@@ -342,7 +353,7 @@ export default function TaskCard({
               <DocumentTextIcon className="w-3.5 h-3.5 mr-2" />
               Edit
             </button>
-            
+
             <button 
               onClick={() => { onComplete(task); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -359,14 +370,14 @@ export default function TaskCard({
                 </>
               )}
             </button>
-            
+
             <div className="h-px bg-surface-200 dark:bg-dark-surface-6 my-1"></div>
-            
+
             {/* Move to quadrant submenu */}
             <div className="px-3 py-1 text-xs text-surface-500 dark:text-dark-text-secondary">
               Move to
             </div>
-            
+
             <button 
               onClick={(e) => { handleMoveToQuadrant(e, 'urgent-important'); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -374,7 +385,7 @@ export default function TaskCard({
               <ExclamationCircleIcon className="w-3.5 h-3.5 mr-2 text-error" />
               Do
             </button>
-            
+
             <button 
               onClick={(e) => { handleMoveToQuadrant(e, 'not-urgent-important'); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -382,7 +393,7 @@ export default function TaskCard({
               <ClockIcon className="w-3.5 h-3.5 mr-2 text-primary-500" />
               Schedule
             </button>
-            
+
             <button 
               onClick={(e) => { handleMoveToQuadrant(e, 'urgent-not-important'); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -390,7 +401,7 @@ export default function TaskCard({
               <ArrowUpCircleIcon className="w-3.5 h-3.5 mr-2 text-warning" />
               Delegate
             </button>
-            
+
             <button 
               onClick={(e) => { handleMoveToQuadrant(e, 'not-urgent-not-important'); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -398,7 +409,7 @@ export default function TaskCard({
               <ArrowDownCircleIcon className="w-3.5 h-3.5 mr-2 text-surface-500" />
               Eliminate
             </button>
-            
+
             <button 
               onClick={(e) => { handleMoveToQuadrant(e, 'backlog'); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center"
@@ -406,9 +417,9 @@ export default function TaskCard({
               <QueueListIcon className="w-3.5 h-3.5 mr-2 text-primary-800 dark:text-primary-300" />
               Backlog
             </button>
-            
+
             <div className="h-px bg-surface-200 dark:bg-dark-surface-6 my-1"></div>
-            
+
             <button 
               onClick={() => { onDelete(task.id); setMenuOpen(false); }}
               className="w-full text-left px-3 py-1 text-xs hover-subtle flex items-center text-error"

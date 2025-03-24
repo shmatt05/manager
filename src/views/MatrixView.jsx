@@ -99,31 +99,31 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
   // Ripple effect for the container when hovered during drag
   const rippleRef = useRef(null);
   const [isHighlighted, setIsHighlighted] = useState(false);
-  
+
   // When isOver changes, update the highlight state
   useEffect(() => {
     if (isOver) {
       setIsHighlighted(true);
-      
+
       // Create the ripple effect
       if (rippleRef.current) {
         const ripple = document.createElement('span');
         ripple.className = 'absolute inset-0 bg-current opacity-5 rounded-md animate-pulse-subtle';
         rippleRef.current.appendChild(ripple);
-        
+
         // Store the ripple element to remove it later
         rippleRef.current.rippleElement = ripple;
       }
     }
   }, [isOver]);
-  
+
   // Listen for the global drag end event to clear the highlight
   useEffect(() => {
     const handleDragEnd = () => {
       // Use a slight delay to ensure smooth transition
       setTimeout(() => {
         setIsHighlighted(false);
-        
+
         // Remove the ripple element if it exists
         if (rippleRef.current && rippleRef.current.rippleElement) {
           rippleRef.current.rippleElement.remove();
@@ -131,11 +131,11 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
         }
       }, 200);
     };
-    
+
     // Add event listener for drag end
     document.addEventListener('dragend', handleDragEnd);
     document.addEventListener('mouseup', handleDragEnd);
-    
+
     return () => {
       document.removeEventListener('dragend', handleDragEnd);
       document.removeEventListener('mouseup', handleDragEnd);
@@ -148,7 +148,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
       className={`relative flex flex-col h-full overflow-hidden ${className} ${lightBg} ${darkBg} rounded-md border transition-colors duration-200 ${isHighlighted ? 'ring-2 ring-primary-300/30 dark:ring-primary-500/20' : ''}`}
     >
       <div ref={rippleRef} className="absolute inset-0 pointer-events-none overflow-hidden"></div>
-      
+
       {/* Header */}
       <div className={`flex items-center px-2 py-1 border-b border-gray-200/50 dark:border-gray-700/30 ${iconColor} select-none`}>
         {icon}
@@ -157,7 +157,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
           <p className="text-xs opacity-70 select-none">{description}</p>
         </div>
       </div>
-      
+
       {/* Task list - remove overflow-auto to prevent scrolling */}
       <div className="flex-1 p-1 space-y-1">
         <SortableContext items={tasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
@@ -172,7 +172,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
             />
           ))}
         </SortableContext>
-        
+
         {tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full opacity-50 py-4 select-none">
             <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -206,41 +206,41 @@ export default function MatrixView({
   // Ripple effect for buttons - moved up to follow React hooks rules
   const [ripplePos, setRipplePos] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
-  
+
   const lastDragTimeRef = useRef(0);
   const isDraggingRef = useRef(false);
   const lastDraggedTaskRef = useRef(null);
   const pendingUpdatesRef = useRef(new Map());
   const prevTasksRef = useRef(tasks);
   const isUpdatingRef = useRef(false); // Track if we're in the middle of an update
-  
+
   // Define getTaskQuadrant first, before any functions that reference it
   const getTaskQuadrant = (task) => {
     if (task.scheduledFor === 'tomorrow') return 'backlog';
-    
+
     const isUrgent = task.priority <= 2;
     const isImportant = task.tags.includes('important');
-    
+
     if (isUrgent && isImportant) return 'urgent-important';
     if (!isUrgent && isImportant) return 'not-urgent-important';
     if (isUrgent && !isImportant) return 'urgent-not-important';
     return 'not-urgent-not-important';
   };
-  
+
   const handleBtnMouseDown = (e) => {
     const btn = e.currentTarget;
     const rect = btn.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     setRipplePos({ x, y });
     setShowRipple(true);
-    
+
     setTimeout(() => {
       setShowRipple(false);
     }, 600);
   };
-  
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -259,7 +259,7 @@ export default function MatrixView({
 
     const db = getFirestore();
     const tasksRef = collection(db, `users/${auth.currentUser.uid}/tasks`);
-    
+
     const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
       const tasksData = snapshot.docs.map(doc => ({
         ...doc.data(),
@@ -277,7 +277,7 @@ export default function MatrixView({
   useEffect(() => {
     if (isDraggingRef.current && lastDraggedTaskRef.current) {
       const currentTask = tasks.find(t => t.id === lastDraggedTaskRef.current.id);
-      
+
       if (currentTask && JSON.stringify(currentTask) !== JSON.stringify(lastDraggedTaskRef.current)) {
         // Task changed during drag - handled by our local state approach
       }
@@ -290,63 +290,64 @@ export default function MatrixView({
     // Only run this once on mount
     setLocalTasks(tasks);
   }, []); // Empty dependency array - only run once on mount
-  
+
   // Use a separate effect to sync tasks changes, but with a ref to prevent infinite loops
   const tasksRef = useRef(tasks);
-  
+
   useEffect(() => {
     // Skip if we're in the middle of our own update
     if (isUpdatingRef.current) {
       console.log('Skipping task sync because isUpdatingRef.current is true');
       return;
     }
-    
+
     // Skip if the tasks reference hasn't changed
     if (tasks === tasksRef.current) {
       return;
     }
-    
+
     console.log('Tasks reference changed, checking for actual changes');
-    
+
     // Use a stable way to compare tasks - stringify only the necessary fields
     const simplifyTask = (task) => ({
       id: task.id,
       title: task.title,
+      description: task.description, // Include description to ensure it's synced
       status: task.status,
       priority: task.priority,
       scheduledFor: task.scheduledFor,
       tags: [...task.tags].sort(), // Sort to ensure consistent comparison
       updatedAt: task.updatedAt
     });
-    
+
     const prevTasksSimplified = tasksRef.current.map(simplifyTask);
     const tasksSimplified = tasks.map(simplifyTask);
-    
+
     const prevTasksJSON = JSON.stringify(prevTasksSimplified);
     const tasksJSON = JSON.stringify(tasksSimplified);
-    
+
     // Skip if tasks haven't actually changed
     if (prevTasksJSON === tasksJSON) {
       console.log('Tasks content unchanged, skipping update');
       tasksRef.current = tasks; // Update the ref to the new reference
       return;
     }
-    
+
     console.log('Tasks content changed, updating localTasks');
-    
+
     // Update our reference
     tasksRef.current = tasks;
-    
+
     // Apply any pending updates
     const updatedTasks = tasks.map(task => {
       const pendingTask = pendingUpdatesRef.current.get(task.id);
       return pendingTask || task;
     });
-    
+
     console.log('Setting localTasks with updated tasks');
     setLocalTasks(updatedTasks);
   }, [tasks]);
-  
+
   // Add a cleanup function to ensure isUpdatingRef is reset if the component unmounts
   useEffect(() => {
     return () => {
@@ -356,7 +357,7 @@ export default function MatrixView({
       }
     };
   }, []);
-  
+
   const quadrantTasks = useMemo(() => {
     const sorted = {
       'urgent-important': [],
@@ -376,13 +377,13 @@ export default function MatrixView({
 
         const isUrgent = task.priority <= 2;
         const isImportant = task.tags.includes('important');
-        
+
         const quadrant = 
           isUrgent && isImportant ? 'urgent-important' :
           !isUrgent && isImportant ? 'not-urgent-important' :
           isUrgent && !isImportant ? 'urgent-not-important' :
           'not-urgent-not-important';
-        
+
         sorted[quadrant].push(task);
       });
 
@@ -394,7 +395,7 @@ export default function MatrixView({
     console.log('Drag start:', active.id);
     setActiveId(active.id);
     isDraggingRef.current = true;
-    
+
     const task = tasks.find(t => t.id === active.id);
     if (task) {
       lastDraggedTaskRef.current = {...task};
@@ -404,7 +405,7 @@ export default function MatrixView({
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
     console.log('Drag end - active:', active?.id, 'over:', over?.id);
-    
+
     // Use a slight delay to ensure smooth animation
     setTimeout(() => {
       setActiveId(null);
@@ -425,13 +426,13 @@ export default function MatrixView({
     // Determine if the over target is a task or a quadrant
     const isOverTask = over.id.toString().startsWith('task-');
     const isOverQuadrant = Object.keys(QUADRANTS).some(q => q === over.id);
-    
+
     console.log('Is over task:', isOverTask, 'Is over quadrant:', isOverQuadrant);
-    
+
     // Set the updating flag to prevent the useEffect from running
     isUpdatingRef.current = true;
     console.log('Setting isUpdatingRef.current to true');
-    
+
     try {
       // If dropped on a task, we need to determine if it's in a different quadrant
       if (isOverTask) {
@@ -440,22 +441,22 @@ export default function MatrixView({
           console.log('Over task not found');
           return;
         }
-        
+
         const currentQuadrant = getTaskQuadrant(task);
         const targetQuadrant = getTaskQuadrant(overTask);
-        
+
         console.log('Current task quadrant:', currentQuadrant, 'Target task quadrant:', targetQuadrant);
-        
+
         if (currentQuadrant !== targetQuadrant) {
           // Moving to a different quadrant by dropping on a task in that quadrant
           console.log('Moving between quadrants via task drop:', currentQuadrant, '->', targetQuadrant);
-          
+
           const updatedTask = {
             ...task,
             scheduledFor: targetQuadrant === 'backlog' ? 'tomorrow' : 'today',
             updatedAt: new Date().toISOString()
           };
-          
+
           // Remove any existing quadrant tags
           const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
           let filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
@@ -480,14 +481,14 @@ export default function MatrixView({
           const updatedLocalTasks = localTasks.map(t => 
             t.id === updatedTask.id ? updatedTask : t
           );
-          
+
           pendingUpdatesRef.current.set(updatedTask.id, updatedTask);
-          
+
           setLocalTasks(updatedLocalTasks);
-          
+
           console.log('Calling onTaskUpdate');
           const updatePromise = onTaskUpdate(updatedLocalTasks);
-          
+
           // Handle the promise properly
           updatePromise
             .then(() => {
@@ -504,24 +505,24 @@ export default function MatrixView({
             });
           return;
         }
-        
+
         // Same quadrant, handle sorting
         console.log('Sorting within the same quadrant');
         const oldIndex = localTasks.findIndex(t => t.id === active.id);
         const newIndex = localTasks.findIndex(t => t.id === over.id);
-        
+
         if (oldIndex !== newIndex) {
           const updatedLocalTasks = arrayMove(localTasks, oldIndex, newIndex);
-          
+
           updatedLocalTasks.forEach(task => {
             pendingUpdatesRef.current.set(task.id, task);
           });
-          
+
           setLocalTasks(updatedLocalTasks);
-          
+
           console.log('Calling onTaskUpdate');
           const updatePromise = onTaskUpdate(updatedLocalTasks);
-          
+
           // Handle the promise properly
           updatePromise
             .then(() => {
@@ -546,9 +547,9 @@ export default function MatrixView({
       // Direct drop on a quadrant
       const targetQuadrant = over.id;
       const currentQuadrant = getTaskQuadrant(task);
-      
+
       console.log('Moving between quadrants:', currentQuadrant, '->', targetQuadrant);
-      
+
       if (currentQuadrant !== targetQuadrant) {
         console.log('Updating task for new quadrant');
         const updatedTask = {
@@ -556,7 +557,7 @@ export default function MatrixView({
           scheduledFor: targetQuadrant === 'backlog' ? 'tomorrow' : 'today',
           updatedAt: new Date().toISOString()
         };
-        
+
         // Remove any existing quadrant tags
         const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
         let filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
@@ -581,14 +582,14 @@ export default function MatrixView({
         const updatedLocalTasks = localTasks.map(t => 
           t.id === updatedTask.id ? updatedTask : t
         );
-        
+
         pendingUpdatesRef.current.set(updatedTask.id, updatedTask);
-        
+
         setLocalTasks(updatedLocalTasks);
-        
+
         console.log('Calling onTaskUpdate');
         const updatePromise = onTaskUpdate(updatedLocalTasks);
-        
+
         // Handle the promise properly
         updatePromise
           .then(() => {
@@ -629,7 +630,9 @@ export default function MatrixView({
   }, [tasks]);
 
   const handleEditTask = (task) => {
-    setSelectedTask(task);
+    // Get the latest version of the task from the tasks prop
+    const latestTask = tasks.find(t => t.id === task.id) || task;
+    setSelectedTask(latestTask);
     setIsModalOpen(true);
   };
 
@@ -648,13 +651,13 @@ export default function MatrixView({
         const { _action, ...taskToSave } = updatedTask;
         updatedTask = taskToSave;
       }
-      
-      const updatedTasks = tasks.map(t => 
+
+      const updatedTasks = tasks.map(t =>
         t.id === updatedTask.id ? updatedTask : t
       );
-      
+
       onTaskUpdate(updatedTasks);
-      
+
       setIsModalOpen(false);
       setSelectedTask(null);
     } catch (error) {
@@ -671,20 +674,20 @@ export default function MatrixView({
       }
       return true; // Include all tasks from all quadrants
     });
-    
+
     if (tasksToMove.length === 0) return;
-    
+
     // Set the updating flag
     isUpdatingRef.current = true;
     console.log('Setting isUpdatingRef.current to true in handleSendAllToBacklog');
-    
+
     const updatedTasks = localTasks.map(task => {
       // Only move tasks that are not completed and not already in backlog
       if (task.status !== 'completed' && task.scheduledFor !== 'tomorrow') {
         // Remove existing quadrant tags
         const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
         const filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
-        
+
         return {
           ...task,
           scheduledFor: 'tomorrow',
@@ -695,18 +698,18 @@ export default function MatrixView({
       }
       return task;
     });
-    
+
     setLocalTasks(updatedTasks);
-    
+
     // Clear any pending updates and add the current ones
     pendingUpdatesRef.current = new Map();
     updatedTasks.forEach(task => {
       pendingUpdatesRef.current.set(task.id, task);
     });
-    
+
     console.log('Calling onTaskUpdate from handleSendAllToBacklog');
     const updatePromise = onTaskUpdate(updatedTasks);
-    
+
     // Handle the promise properly
     updatePromise
       .then(() => {
@@ -724,29 +727,29 @@ export default function MatrixView({
         console.log('Reset isUpdatingRef.current to false in handleSendAllToBacklog');
       });
   }, [localTasks, onTaskUpdate]);
-  
+
   const handleMoveToQuadrant = useCallback((taskId, targetQuadrant) => {
     const task = localTasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     const currentQuadrant = getTaskQuadrant(task);
     if (currentQuadrant === targetQuadrant) return;
-    
+
     // Set the updating flag
     isUpdatingRef.current = true;
     console.log('Setting isUpdatingRef.current to true in handleMoveToQuadrant');
-    
+
     // Create a copy of the task with updated properties
     const updatedTask = {
       ...task,
       scheduledFor: targetQuadrant === 'backlog' ? 'tomorrow' : 'today',
       updatedAt: new Date().toISOString()
     };
-    
+
     // Remove any existing quadrant tags
     const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
     let filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
-    
+
     // Set properties based on target quadrant
     if (targetQuadrant === 'urgent-important') {
       updatedTask.priority = 1;
@@ -764,19 +767,19 @@ export default function MatrixView({
       updatedTask.priority = 5;
       updatedTask.tags = [...new Set([...filteredTags, 'backlog'])];
     }
-    
+
     // Update the tasks
     const updatedTasks = localTasks.map(t => 
       t.id === updatedTask.id ? updatedTask : t
     );
-    
+
     pendingUpdatesRef.current.set(updatedTask.id, updatedTask);
-    
+
     setLocalTasks(updatedTasks);
-    
+
     console.log('Calling onTaskUpdate from handleMoveToQuadrant');
     const updatePromise = onTaskUpdate(updatedTasks);
-    
+
     // Handle the promise properly
     updatePromise
       .then(() => {
@@ -845,7 +848,7 @@ export default function MatrixView({
                 onMoveToQuadrant={handleMoveToQuadrant}
               />
             </div>
-            
+
             {/* Top row - second quadrant */}
             <div className="h-full">
               <Quadrant
@@ -864,7 +867,7 @@ export default function MatrixView({
                 onMoveToQuadrant={handleMoveToQuadrant}
               />
             </div>
-            
+
             {/* Bottom row - third quadrant */}
             <div className="h-full">
               <Quadrant
@@ -883,7 +886,7 @@ export default function MatrixView({
                 onMoveToQuadrant={handleMoveToQuadrant}
               />
             </div>
-            
+
             {/* Bottom row - fourth quadrant */}
             <div className="h-full">
               <Quadrant
@@ -903,7 +906,7 @@ export default function MatrixView({
               />
             </div>
           </div>
-          
+
           {/* Backlog section below the matrix */}
           <div className="mt-2">
             <Quadrant

@@ -22,13 +22,13 @@ function Ripple() {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      
+
       // Clean up ripples after animation is done with a shorter timeout
       timeoutRef.current = setTimeout(() => {
         setRipples([]);
         timeoutRef.current = null;
       }, 500);
-      
+
       return () => {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
@@ -37,7 +37,7 @@ function Ripple() {
       };
     }
   }, [ripples]);
-  
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -51,20 +51,20 @@ function Ripple() {
     // Prevent double-triggers
     if (e.defaultPrevented) return;
     e.preventDefault();
-    
+
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height);
     const x = e.clientX - rect.left - size / 2;
     const y = e.clientY - rect.top - size / 2;
-    
+
     const newRipple = {
       x,
       y,
       size,
       id: Date.now()
     };
-    
+
     // Reset ripples before adding a new one to prevent double animations
     setRipples([newRipple]);
   };
@@ -94,15 +94,15 @@ function Ripple() {
 function FloatingLabelInput({ label, type = "text", value, onChange, placeholder, className, ...props }) {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef(null);
-  
+
   const handleFocus = () => setIsFocused(true);
   const handleBlur = () => setIsFocused(value !== '');
-  
+
   useEffect(() => {
     // Initialize the label position based on whether there's a value
     setIsFocused(value !== '');
   }, [value]);
-  
+
   return (
     <div className={`relative ${className}`}>
       <label 
@@ -150,17 +150,18 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
 
   // Handle modal opening/closing and task changes
   useEffect(() => {
-    if (!isOpen) {
-      setEditedTask({ ...task });
-      setDueDate('');
-      setActiveTab('details');
-    } else if (isOpen && task) {
-      setEditedTask(task);
-      
+    if (isOpen && task) {
+      // Only set the state when the modal is open
+      setEditedTask({
+        ...task,
+        tags: task.tags || [] // Ensure tags is always an array
+      });
+
       // Initialize due date if task has a dueDate
       if (task.dueDate) {
         try {
-          setDueDate(task.dueDate.slice(0, 16)); // Format for datetime-local input
+          // Use formatDateForInput to handle both string and timestamp formats
+          setDueDate(typeof task.dueDate === 'string' ? task.dueDate.slice(0, 16) : formatDateForInput(task.dueDate));
         } catch (error) {
           console.error('Error parsing due date:', error);
           setDueDate('');
@@ -168,21 +169,12 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
       } else {
         setDueDate('');
       }
+    } else if (!isOpen) {
+      // Reset state when modal is closed
+      setDueDate('');
+      setActiveTab('details');
     }
   }, [isOpen, task]);
-
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [onClose]);
 
   const handleClickOutside = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -204,9 +196,37 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   };
 
   const handleSave = () => {
-    onSave(editedTask);
+    // Ensure tags are properly included in the task object
+    const taskToSave = {
+      ...editedTask,
+      tags: editedTask.tags || []
+    };
+    onSave(taskToSave);
     onClose();
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        // Check if the active element is not the tag input or description textarea
+        const activeElement = document.activeElement;
+        const isTagInput = activeElement.id === 'newTag';
+        const isDescriptionTextarea = activeElement.id === 'description';
+
+        if (!isTagInput && !isDescriptionTextarea) {
+          e.preventDefault();
+          handleSave();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose, handleSave]);
 
   const handleDelete = () => {
     // We'll use the onSave callback with a special action
@@ -309,6 +329,15 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                   name="description"
                   value={editedTask.description || ''}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.shiftKey) {
+                      // Allow Shift+Enter to create a new line
+                      // Default behavior is fine, no need to do anything special
+                    } else if (e.key === 'Enter' && !e.shiftKey) {
+                      // Prevent regular Enter from submitting the form
+                      e.stopPropagation();
+                    }
+                  }}
                   rows={3}
                   className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
                 />
@@ -336,18 +365,69 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                   <label htmlFor="tags" className="block text-xs font-medium text-gray-700 dark:text-dark-text-secondary mb-1 select-none">
                     Tags
                   </label>
-                  <input
-                    type="text"
-                    id="tags"
-                    name="tags"
-                    value={editedTask.tags ? editedTask.tags.join(', ') : ''}
-                    onChange={(e) => {
-                      const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
-                      setEditedTask(prev => ({ ...prev, tags: tagsArray }));
-                    }}
-                    className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors select-none"
-                    placeholder="Enter tags separated by commas"
-                  />
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {editedTask.tags && editedTask.tags.map(tag => (
+                      <div 
+                        key={tag} 
+                        className="px-2 py-1 text-xs rounded-md bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary flex items-center"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          className="ml-1 text-surface-500 hover:text-error dark:text-dark-text-secondary dark:hover:text-error"
+                          onClick={() => {
+                            setEditedTask(prev => ({
+                              ...prev,
+                              tags: prev.tags.filter(t => t !== tag)
+                            }));
+                          }}
+                        >
+                          <XMarkIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      id="newTag"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newTag.trim()) {
+                          e.preventDefault();
+                          const tagToAdd = newTag.trim();
+                          if (!editedTask.tags.includes(tagToAdd)) {
+                            setEditedTask(prev => ({
+                              ...prev,
+                              tags: [...prev.tags, tagToAdd]
+                            }));
+                          }
+                          setNewTag('');
+                        }
+                      }}
+                      className="flex-1 px-3 py-1.5 rounded-l-lg border border-gray-300 dark:border-dark-surface-6 bg-white dark:bg-dark-surface-3 text-gray-900 dark:text-dark-text-primary focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 dark:focus:border-blue-600 transition-colors"
+                      placeholder="Add a tag"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newTag.trim()) {
+                          const tagToAdd = newTag.trim();
+                          if (!editedTask.tags.includes(tagToAdd)) {
+                            setEditedTask(prev => ({
+                              ...prev,
+                              tags: [...prev.tags, tagToAdd]
+                            }));
+                          }
+                          setNewTag('');
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-r-lg bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-xs font-medium transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -389,7 +469,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                   Mark Complete
                 </button>
               )}
-              
+
               {task && (
                 <button
                   onClick={handleDelete}
@@ -401,14 +481,14 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
               )}
             </>
           )}
-          
+
           <button
             onClick={onClose}
             className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"
           >
             Cancel
           </button>
-          
+
           <button
             onClick={handleSave}
             className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white text-xs font-medium transition-colors select-none"
