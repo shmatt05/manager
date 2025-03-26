@@ -87,7 +87,7 @@ npm run dev
     - `#schedule` - Mark as important but not urgent (Quadrant 2)
     - `#delegate` - Mark as urgent but not important (Quadrant 3)
     - `#eliminate` - Mark as neither urgent nor important (Quadrant 4)
-    - `#tomorrow` - Schedule task for tomorrow
+    - `#backlog` - Add task to backlog
 
 ### Example:
 
@@ -109,10 +109,10 @@ This project is licensed under the MIT License.
    ```bash
    # Install Firebase CLI globally
    npm install -g firebase-tools
-   
+
    # Login to Firebase
    firebase login
-   
+
    # Initialize Firebase in your project
    firebase init
    ```
@@ -127,7 +127,7 @@ This project is licensed under the MIT License.
    ```bash
    # Build the project
    npm run build
-   
+
    # Deploy to Firebase
    firebase deploy
    ```

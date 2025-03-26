@@ -206,6 +206,9 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
   };
 
   useEffect(() => {
+    // Only add the event listener if the modal is open
+    if (!isOpen) return;
+
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         onClose();
@@ -226,7 +229,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose, handleSave]);
+  }, [isOpen, onClose, handleSave]);
 
   const handleDelete = () => {
     // We'll use the onSave callback with a special action

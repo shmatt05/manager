@@ -53,7 +53,7 @@ const parseTaskText = (text) => {
     'schedule': { priority: 3, tags: ['important', 'schedule'] },   // not-urgent-important
     'delegate': { priority: 2, tags: ['delegate'] },               // urgent-not-important
     'eliminate': { priority: 4, tags: ['eliminate'] },             // not-urgent-not-important
-    'backlog': { scheduledFor: 'tomorrow', priority: 5, tags: ['backlog'] }
+    'backlog': { scheduledFor: 'backlog', priority: 5, tags: ['backlog'] }
   };
 
   let priority = 4;
@@ -102,8 +102,8 @@ const TaskCreate = ({ onCreateTask }) => {
         // Set the due date to today with the parsed time
         dueDate = parsedTime.toISOString();
 
-        // If scheduled for tomorrow, add a day
-        if (scheduledFor === 'tomorrow') {
+        // If scheduled for backlog, add a day
+        if (scheduledFor === 'backlog') {
           dueDate = addDays(parsedTime, 1).toISOString();
         }
       }

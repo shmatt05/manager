@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { config } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import clsx from 'clsx';
+import { SunIcon } from '@heroicons/react/24/outline';
+import DayPlannerModal from './DayPlannerModal';
 
-function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) {
+function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, backlogTasks, onTaskDecision }) {
+  const [isDayPlannerOpen, setIsDayPlannerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const { user, signOut } = useAuth();
-  
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -36,16 +39,69 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) 
             </span>
             <h1 className="text-base font-semibold dark:text-dark-text-primary select-none">Task Zero</h1>
           </div>
-          
+
           <div className="flex-1 flex justify-center max-w-2xl mx-4">
             {children} {/* TaskCreate component */}
           </div>
-          
+
           <div className="flex items-center">
-            {/* Send All to Backlog button - smaller to match user icon */}
-            {activeTab === 'matrix' && onSendAllToBacklog && (
+            {/* Plan My Day button - only shown when there are backlog tasks */}
+            {backlogTasks && backlogTasks.length > 0 && (
               <button
-                onClick={onSendAllToBacklog}
+                onClick={() => setIsDayPlannerOpen(true)}
+                className="mr-2 h-[30px] px-3 text-[12px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-700 dark:hover:to-orange-700 text-white rounded-md flex items-center transition-all duration-200 hover:shadow-md transform hover:translate-y-[-1px] group select-none"
+                title={`Plan your day by prioritizing ${backlogTasks.length} backlog task${backlogTasks.length === 1 ? '' : 's'}`}
+              >
+                <SunIcon className="w-4 h-4 mr-1 text-white animate-pulse-subtle" />
+                Plan My Day {backlogTasks.length > 0 && <span className="ml-1 bg-white/20 text-white text-[10px] px-1 rounded-full">{backlogTasks.length}</span>}
+              </button>
+            )}
+
+            {/* Re-enable Send All to Backlog button with safeguards */}
+            {activeTab === 'matrix' && (
+              <button
+                onClick={() => {
+                  console.log('👆 BUTTON CLICK DETECTED: Send All to Backlog button clicked');
+                  
+                  // CRITICAL FIX: Add a direct implementation right in the button click
+                  const nonBacklogTasks = [];
+                  let tasksUpdated = false;
+                  
+                  // Find tasks to move and create updated versions
+                  const updatedTasks = window.allTasks?.map(task => {
+                    if (task.status !== 'completed' && task.scheduledFor !== 'backlog') {
+                      // Add to list for logging
+                      nonBacklogTasks.push(task.title || task.id);
+                      tasksUpdated = true;
+                      
+                      // Remove existing quadrant tags
+                      const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
+                      const filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
+                      
+                      return {
+                        ...task,
+                        scheduledFor: 'backlog',
+                        priority: 5,
+                        tags: [...new Set([...filteredTags, 'backlog'])],
+                        updatedAt: new Date().toISOString()
+                      };
+                    }
+                    return task;
+                  }) || [];
+                  
+                  console.log(`Found ${nonBacklogTasks.length} tasks to move to backlog:`, nonBacklogTasks);
+                  
+                  // Only call the function if we actually have tasks to move
+                  if (tasksUpdated && typeof onSendAllToBacklog === 'function') {
+                    console.log('Manually executing send to backlog with updated tasks');
+                    try {
+                      // Tell backend to process updates
+                      onSendAllToBacklog(updatedTasks);
+                    } catch (error) {
+                      console.error('Error in send to backlog:', error);
+                    }
+                  }
+                }}
                 className="mr-2 h-[26px] px-2 text-[11px] bg-gray-100 hover:bg-white dark:bg-dark-surface-4 dark:hover:bg-dark-surface-3 text-gray-700 hover:text-gray-900 dark:text-dark-text-primary dark:hover:text-dark-text-primary rounded flex items-center transition-all duration-200 hover:shadow-sm group select-none"
                 title="Move all tasks from all quadrants to the backlog"
               >
@@ -55,7 +111,7 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) 
                 Send All to Backlog
               </button>
             )}
-            
+
             {user && (
               <div ref={menuRef} className="relative flex">
                 <button
@@ -102,6 +158,14 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog }) 
           ))}
         </div>
       </nav>
+
+      {/* Day Planner Modal */}
+      <DayPlannerModal
+        isOpen={isDayPlannerOpen}
+        onClose={() => setIsDayPlannerOpen(false)}
+        tasks={backlogTasks || []}
+        onTaskDecision={onTaskDecision}
+      />
     </div>
   );
 }

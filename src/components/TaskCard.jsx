@@ -228,8 +228,20 @@ export default function TaskCard({
     e.preventDefault();
     e.stopPropagation();
     setMenuOpen(false);
-    if (onMoveToQuadrant) {
-      onMoveToQuadrant(task.id, quadrant);
+    
+    // CRITICAL FIX: Add debug logging and additional safeguards
+    console.log(`DEBUG: Explicit move task to ${quadrant} requested for task ID ${task.id}`);
+    
+    if (onMoveToQuadrant && typeof onMoveToQuadrant === 'function') {
+      try {
+        // Re-enable move to backlog from context menu - this is an intentional user action
+        if (quadrant === 'backlog') {
+          console.log('SAFE: Explicitly moving task to backlog via context menu');
+        }
+        onMoveToQuadrant(task.id, quadrant);
+      } catch (error) {
+        console.error('Error moving task to quadrant:', error);
+      }
     }
   };
 

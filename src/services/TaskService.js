@@ -14,7 +14,7 @@ export const TaskService = {
   createTask: async (newTask, user, isProd, tasks) => {
     if (isProd && user) {
       const db = getFirestore();
-      
+
       // Create history entry for new task
       const historyEntry = TaskService.createHistoryEntry(newTask, 'CREATE', user.uid);
 
@@ -33,11 +33,11 @@ export const TaskService = {
       // Local storage handling
       const newTasks = [newTask, ...tasks];
       localStorage.setItem('tasks', JSON.stringify(newTasks));
-      
+
       // Add history entry
       const historyEntry = TaskService.createHistoryEntry(newTask, 'CREATE', 'local-user');
       TaskService.saveHistoryToLocalStorage(historyEntry);
-      
+
       return newTasks;
     }
   },
@@ -51,10 +51,10 @@ export const TaskService = {
       if (existingTaskIndex === -1) {
         throw new Error('Task not found');
       }
-      
+
       const existingTask = tasks[existingTaskIndex];
       const updatedTasks = [...tasks];
-      
+
       // Normalize the task data to ensure we have consistent fields
       const normalizedTask = {
         ...updatedTask,
@@ -62,12 +62,12 @@ export const TaskService = {
         details: updatedTask.description || updatedTask.details || existingTask.description || existingTask.details || '',
         updatedAt: new Date().toISOString()
       };
-      
+
       // Use our helper to detect changes
       const changes = TaskService.detectTaskChanges(existingTask, normalizedTask);
-      
+
       updatedTasks[existingTaskIndex] = normalizedTask;
-      
+
       // Only create history entry if there are actual changes
       if (changes.length > 0) {
         // Create the history entry
@@ -77,12 +77,12 @@ export const TaskService = {
           isProd && user ? user.uid : 'local-user',
           changes
         );
-        
+
         if (isProd && user) {
           const db = getFirestore();
           const taskRef = doc(db, `users/${user.uid}/tasks/${normalizedTask.id}`);
           const historyRef = doc(db, `users/${user.uid}/taskHistory/${Date.now()}`);
-          
+
           await Promise.all([
             setDoc(taskRef, normalizedTask),
             setDoc(historyRef, historyEntry)
@@ -102,7 +102,7 @@ export const TaskService = {
           localStorage.setItem('tasks', JSON.stringify(updatedTasks));
         }
       }
-      
+
       return updatedTasks;
     } catch (error) {
       console.error('Error updating task:', error);
@@ -116,10 +116,10 @@ export const TaskService = {
   deleteTask: async (taskId, tasks, user, isProd) => {
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) return tasks;
-    
+
     if (isProd && user) {
       const db = getFirestore();
-      
+
       // Create history entry for deletion
       const historyEntry = TaskService.createHistoryEntry(taskToDelete, 'DELETE', user.uid);
 
@@ -130,7 +130,7 @@ export const TaskService = {
     } else {
       // Local storage handling
       localStorage.setItem('tasks', JSON.stringify(tasks.filter(t => t.id !== taskId)));
-      
+
       // Add history entry
       const historyEntry = TaskService.createHistoryEntry(taskToDelete, 'DELETE', 'local-user');
       TaskService.saveHistoryToLocalStorage(historyEntry);
@@ -152,7 +152,7 @@ export const TaskService = {
 
     if (isProd && user) {
       const db = getFirestore();
-      
+
       // Create history entry for completion
       const historyEntry = TaskService.createHistoryEntry(
         updatedTask, 
@@ -177,7 +177,7 @@ export const TaskService = {
       // Local storage handling
       const newTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
       localStorage.setItem('tasks', JSON.stringify(newTasks));
-      
+
       // Add history entry
       const historyEntry = TaskService.createHistoryEntry(
         updatedTask,
@@ -204,9 +204,9 @@ export const TaskService = {
     if (!originalTask || !updatedTask) {
       return [];
     }
-    
+
     const changes = [];
-    
+
     // Fields to check for changes
     const fieldsToCheck = [
       { key: 'title', label: 'Title' },
@@ -216,25 +216,25 @@ export const TaskService = {
       { key: 'status', label: 'Status' },
       { key: 'scheduledFor', label: 'Scheduled For' }
     ];
-    
+
     // Check for regular field changes
     fieldsToCheck.forEach(({ key, label }) => {
       const oldValue = originalTask[key];
       const newValue = updatedTask[key];
-      
+
       // Skip if both are undefined or no change
       if ((oldValue === undefined && newValue === undefined) || 
           oldValue === newValue) {
         return;
       }
-      
+
       changes.push({ 
         field: label, 
         oldValue: oldValue === undefined ? '' : oldValue, 
         newValue: newValue === undefined ? '' : newValue 
       });
     });
-    
+
     // Special handling for tags (array)
     const oldTags = originalTask.tags || [];
     const newTags = updatedTask.tags || [];
@@ -245,23 +245,23 @@ export const TaskService = {
         newValue: newTags.join(', ')
       });
     }
-    
+
     // Special handling for quadrant changes
     const getQuadrant = (task) => {
-      if (task.scheduledFor === 'tomorrow') return 'Backlog';
-      
+      if (task.scheduledFor === 'backlog') return 'Backlog';
+
       const isUrgent = task.priority <= 2;
       const isImportant = task.tags?.includes('important') || false;
-      
+
       if (isUrgent && isImportant) return 'Do (Urgent & Important)';
       if (!isUrgent && isImportant) return 'Schedule (Important, Not Urgent)';
       if (isUrgent && !isImportant) return 'Delegate (Urgent, Not Important)';
       return 'Eliminate (Not Urgent or Important)';
     };
-    
+
     const oldQuadrant = getQuadrant(originalTask);
     const newQuadrant = getQuadrant(updatedTask);
-    
+
     if (oldQuadrant !== newQuadrant) {
       changes.push({
         field: 'Quadrant',
@@ -269,7 +269,7 @@ export const TaskService = {
         newValue: newQuadrant
       });
     }
-    
+
     return changes;
   },
 
@@ -285,7 +285,7 @@ export const TaskService = {
       return updatedTasks;
     }
     lastBulkUpdateTime = now;
-    
+
     // First, we need the original tasks to compare for history
     let originalTasks = [];
     try {
@@ -304,18 +304,18 @@ export const TaskService = {
       console.error('Error fetching original tasks for history:', error);
       // Continue with empty original tasks - we'll miss history but updates will work
     }
-    
+
     // Track history entries for changed tasks
     const historyEntries = [];
-    
+
     // Find changes for each task
     updatedTasks.forEach(updatedTask => {
       const originalTask = originalTasks.find(t => t.id === updatedTask.id);
       if (!originalTask) return; // Skip if no original task (shouldn't happen)
-      
+
       // Detect changes
       const changes = TaskService.detectTaskChanges(originalTask, updatedTask);
-      
+
       // If we have changes, create history entry
       if (changes.length > 0) {
         const historyEntry = TaskService.createHistoryEntry(
@@ -327,29 +327,29 @@ export const TaskService = {
         historyEntries.push(historyEntry);
       }
     });
-    
+
     // Update tasks and history
     if (isProd && user) {
       const db = getFirestore();
       const batch = writeBatch(db);
-      
+
       // Add task updates to batch
       updatedTasks.forEach(task => {
         const taskRef = doc(db, `users/${user.uid}/tasks/${task.id}`);
         batch.set(taskRef, task);
       });
-      
+
       // Add history entries to batch
       historyEntries.forEach(entry => {
         const historyRef = doc(db, `users/${user.uid}/taskHistory/${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
         batch.set(historyRef, entry);
       });
-      
+
       const currentTime = new Date().getTime();
       if (setLastLocalUpdate) {
         setLastLocalUpdate(currentTime);
       }
-      
+
       try {
         await batch.commit();
       } catch (error) {
@@ -359,13 +359,13 @@ export const TaskService = {
     } else {
       // Update localStorage
       localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      
+
       // Add history entries to localStorage
       historyEntries.forEach(entry => {
         TaskService.saveHistoryToLocalStorage(entry);
       });
     }
-    
+
     return updatedTasks;
   },
 
@@ -402,7 +402,7 @@ export const TaskService = {
         userId: user ? user.uid : 'anonymous',
         changes
       };
-      
+
       if (isProd && isFirebaseReady() && user) {
         const historyRef = collection(db, `users/${user.uid}/taskHistory`);
         await addDoc(historyRef, historyEntry);
