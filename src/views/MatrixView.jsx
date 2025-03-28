@@ -198,6 +198,104 @@ export default function MatrixView({
   const [showRipple, setShowRipple] = useState(false);
   const [isSendingToBacklog, setIsSendingToBacklog] = useState(false); // Track if we're sending to backlog
   const [isDraggingTask, setIsDraggingTask] = useState(false); // CRITICAL FIX: Add state to track drag operations
+  
+  // Add CSS animation for the 3D cube
+  useEffect(() => {
+    // Add the animation style to the document head if it doesn't exist
+    if (!document.getElementById('cube-animation-style')) {
+      const style = document.createElement('style');
+      style.id = 'cube-animation-style';
+      style.textContent = `
+        @keyframes spin-t {
+          from { transform: rotateY(0deg); }
+          to { transform: rotateY(360deg); }
+        }
+        
+        @keyframes spin-o {
+          from { transform: rotateY(0deg); }
+          to { transform: rotateY(360deg); }
+        }
+        
+        .t-3d-part {
+          position: absolute;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          border-radius: 1px;
+        }
+        
+        .o-3d-part {
+          position: absolute;
+          border-radius: 3px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .t-spinner {
+          animation: spin-t 8s linear infinite;
+          transform-style: preserve-3d;
+        }
+        
+        .o-spinner {
+          animation: spin-o 10s linear infinite;
+          transform-style: preserve-3d;
+        }
+        
+        .t-horizontal {
+          width: 46px;
+          height: 12px;
+          top: 8px;
+          left: 50%;
+          transform: translateX(-50%);
+          clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%);
+        }
+        
+        .t-vertical {
+          width: 12px;
+          height: 60px;
+          top: 8px;
+          left: 50%;
+          transform: translateX(-50%);
+          clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
+        }
+        
+        .o-ring {
+          width: 46px;
+          height: 46px;
+          border: 12px solid;
+          border-color: #8b5cf6;
+          background: transparent !important;
+          border-radius: 5px;
+          transform: rotate(45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 32px;
+          font-weight: bold;
+          color: #8b5cf6;
+          transform-style: preserve-3d;
+        }
+        
+        .o-slash {
+          display: inline-block;
+          transform: rotate(-45deg);
+          margin-bottom: 5px;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .preserve-3d {
+          transform-style: preserve-3d;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    return () => {
+      // Clean up the style when component unmounts
+      const styleElement = document.getElementById('cube-animation-style');
+      if (styleElement) {
+        styleElement.remove();
+      }
+    };
+  }, []);
 
   const lastDragTimeRef = useRef(0);
   const isDraggingRef = useRef(false);
@@ -379,7 +477,7 @@ export default function MatrixView({
       setIsDraggingTask(false); // CRITICAL FIX: Reset the dragging task state flag immediately on cancel
       return;
     }
-    
+
     // DEBUGGING: Extra log to check call stack
     console.log('🔍 DEBUG: handleDragEnd proceeding with drag processing');
 
@@ -755,18 +853,18 @@ export default function MatrixView({
 
   const handleMoveToQuadrant = useCallback((taskId, targetQuadrant) => {
     console.log('DEBUG: handleMoveToQuadrant called with taskId:', taskId, 'targetQuadrant:', targetQuadrant);
-    
+
     // Re-enable intentional backlog operations
     if (targetQuadrant === 'backlog') {
       console.log('SAFE: Handling explicit move to backlog request');
     }
-    
+
     // EMERGENCY FIX: Check if we're in the middle of a drag operation
     if (isDraggingTask || isDraggingRef.current) {
       console.log('DEBUG: Cannot move to quadrant while dragging tasks, ignoring request');
       return;
     }
-    
+
     // Use the ref to access the latest localTasks
     const currentLocalTasks = localTasksRef.current;
 
@@ -869,10 +967,10 @@ export default function MatrixView({
   const manualSendAllToBacklog = useCallback(() => {
     console.log('⚠️ ALERT: Matrix View "Send All to Backlog" function called!');
     console.log('⚠️ Call stack:', new Error().stack);
-    
+
     // Intentionally do nothing - for debugging purposes
   }, []);
-  
+
   // CRITICAL FIX: Stop registering the function entirely - it's being called during component initialization
   // This is why tasks are being sent to backlog unexpectedly
 
@@ -889,7 +987,47 @@ export default function MatrixView({
         onDragEnd={handleDragEnd}
       >
         {/* Center the content with margins on both sides */}
-        <div className="max-w-6xl mx-auto w-full flex flex-col">
+        <div className="max-w-6xl mx-auto w-full flex flex-col relative">
+          {/* Empty state celebration */}
+          {['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important']
+            .every(q => quadrantTasks[q].length === 0) && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1]">
+              <div className="text-center max-w-md p-6 rounded-lg bg-primary-100/90 dark:bg-dark-surface-4 backdrop-blur-sm border-2 border-primary-300/50 dark:border-dark-primary-500/30 shadow-lg">
+                {/* 3D Spinning TØ Container */}
+                <div className="relative h-40 w-full mx-auto mb-4 flex items-center justify-center" style={{ perspective: '800px' }}>
+                  <div className="flex items-center justify-center w-auto">
+                    {/* 3D T Character */}
+                    <div className="w-16 h-16 perspective-[800px] flex items-center justify-center relative">
+                      <div className="t-spinner w-full h-full flex items-center justify-center">
+                        {/* T shape */}
+                        <div className="absolute t-3d-part t-horizontal"></div>
+                        <div className="absolute t-3d-part t-vertical"></div>
+                      </div>
+                    </div>
+                    
+                    {/* 3D O Character with slash */}
+                    <div className="w-16 h-16 perspective-[800px] flex items-center justify-center relative -ml-2 mt-1 mr-1">
+                      <div className="o-spinner w-full h-full flex items-center justify-center">
+                        {/* Circle with text slash */}
+                        <div className="o-3d-part o-ring absolute">
+                          <span className="o-slash">/</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <h3 className="text-xl font-semibold text-primary-900 dark:text-dark-text-primary mb-2">
+                  All Clear! 🎉
+                </h3>
+                <p className="text-primary-700/90 dark:text-dark-text-secondary">
+                  Congratulations! You've cleared all active tasks.
+                  <br />
+                  Enjoy your productivity win or add new tasks below.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Main matrix container - use grid for rows and columns */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {/* Top row - first quadrant */}

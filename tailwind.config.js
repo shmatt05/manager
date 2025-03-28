@@ -101,6 +101,11 @@ export default {
         'slide-in': 'slideIn 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         'ripple': 'ripple 600ms cubic-bezier(0.4, 0, 0.2, 1)',
         'pulse-subtle': 'pulseSubtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'spin-3d': 'spin-3d 10s linear infinite',
+        'flip-3d': 'flip-3d 1.2s ease-in-out',
+        'rotate-3d-x': 'rotate-3d-x 8s linear infinite',
+        'rotate-3d-y': 'rotate-3d-y 8s linear infinite',
+        'float-3d': 'float-3d 3s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -126,6 +131,49 @@ export default {
         pulseSubtle: {
           '0%, 100%': { opacity: '0.05' },
           '50%': { opacity: '0.15' },
+        },
+        'spin-3d': {
+          '0%': { 
+            transform: 'rotateY(0deg)'
+          },
+          '100%': { 
+            transform: 'rotateY(360deg)'
+          },
+        },
+        'flip-3d': {
+          '0%': { 
+            transform: 'perspective(800px) rotateX(0)'
+          },
+          '50%': { 
+            transform: 'perspective(800px) rotateX(180deg)'
+          },
+          '100%': {
+            transform: 'perspective(800px) rotateX(360deg)'
+          }
+        },
+        'rotate-3d-x': {
+          '0%': { 
+            transform: 'perspective(1000px) rotateX(0deg)'
+          },
+          '100%': { 
+            transform: 'perspective(1000px) rotateX(360deg)'
+          }
+        },
+        'rotate-3d-y': {
+          '0%': { 
+            transform: 'perspective(1000px) rotateY(0deg)'
+          },
+          '100%': { 
+            transform: 'perspective(1000px) rotateY(360deg)'
+          }
+        },
+        'float-3d': {
+          '0%, 100%': { 
+            transform: 'translateY(0) perspective(500px) rotateX(0) rotateY(0)'
+          },
+          '50%': { 
+            transform: 'translateY(-20px) perspective(500px) rotateX(5deg) rotateY(5deg)'
+          }
         },
       },
       boxShadow: {
@@ -155,6 +203,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'Roboto', 'sans-serif'],
         display: ['Inter', 'Google Sans', 'Roboto', 'sans-serif'],
+        mono: ['VT323', 'monospace'],
       },
       fontSize: {
         'xs': ['12px', { lineHeight: '16px' }],
