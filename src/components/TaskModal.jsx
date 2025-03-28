@@ -269,7 +269,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-surface-6 px-5 py-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary select-none">
-            {task?.completed ? 'Completed Task' : 'Task Details'}
+            {task?.completed || task?.status === 'completed' ? 'Completed Task' : 'Task Details'}
           </h2>
           <button 
             onClick={onClose}
@@ -337,8 +337,11 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
                       // Allow Shift+Enter to create a new line
                       // Default behavior is fine, no need to do anything special
                     } else if (e.key === 'Enter' && !e.shiftKey) {
-                      // Prevent regular Enter from submitting the form
+                      // Prevent default behavior and propagation
+                      e.preventDefault();
                       e.stopPropagation();
+                      // Save and close the modal
+                      handleSave();
                     }
                   }}
                   rows={3}
@@ -453,7 +456,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
 
         {/* Footer with action buttons */}
         <div className="border-t border-gray-200 dark:border-dark-surface-6 px-5 py-3 flex flex-wrap gap-2 justify-end select-none">
-          {task?.completed ? (
+          {task?.completed || task?.status === 'completed' ? (
             <button
               onClick={handleReopen}
               className="px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-dark-surface-4 dark:hover:bg-dark-surface-5 text-gray-700 dark:text-dark-text-primary text-xs font-medium transition-colors select-none"

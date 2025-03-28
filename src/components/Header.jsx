@@ -49,11 +49,11 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
             {backlogTasks && backlogTasks.length > 0 && (
               <button
                 onClick={() => setIsDayPlannerOpen(true)}
-                className="mr-2 h-[30px] px-3 text-[12px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-700 dark:hover:to-orange-700 text-white rounded-md flex items-center transition-all duration-200 hover:shadow-md transform hover:translate-y-[-1px] group select-none"
+                className="mr-2 h-[30px] min-w-[125px] px-3 text-[12px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 dark:from-amber-600 dark:to-orange-600 dark:hover:from-amber-700 dark:hover:to-orange-700 text-white rounded-md flex items-center justify-center transition-all duration-200 hover:shadow-md transform hover:translate-y-[-1px] group select-none"
                 title={`Plan your day by prioritizing ${backlogTasks.length} backlog task${backlogTasks.length === 1 ? '' : 's'}`}
               >
-                <SunIcon className="w-4 h-4 mr-1 text-white animate-pulse-subtle" />
-                Plan My Day {backlogTasks.length > 0 && <span className="ml-1 bg-white/20 text-white text-[10px] px-1 rounded-full">{backlogTasks.length}</span>}
+                <SunIcon className="w-4 h-4 mr-1 text-white animate-pulse-subtle flex-shrink-0" />
+                <span className="whitespace-nowrap">Plan My Day</span> {backlogTasks.length > 0 && <span className="ml-1 bg-white/20 text-white text-[10px] px-1 rounded-full flex-shrink-0">{backlogTasks.length}</span>}
               </button>
             )}
 
@@ -62,22 +62,22 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
               <button
                 onClick={() => {
                   console.log('👆 BUTTON CLICK DETECTED: Send All to Backlog button clicked');
-                  
+
                   // CRITICAL FIX: Add a direct implementation right in the button click
                   const nonBacklogTasks = [];
                   let tasksUpdated = false;
-                  
+
                   // Find tasks to move and create updated versions
                   const updatedTasks = window.allTasks?.map(task => {
                     if (task.status !== 'completed' && task.scheduledFor !== 'backlog') {
                       // Add to list for logging
                       nonBacklogTasks.push(task.title || task.id);
                       tasksUpdated = true;
-                      
+
                       // Remove existing quadrant tags
                       const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
                       const filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
-                      
+
                       return {
                         ...task,
                         scheduledFor: 'backlog',
@@ -88,9 +88,9 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
                     }
                     return task;
                   }) || [];
-                  
+
                   console.log(`Found ${nonBacklogTasks.length} tasks to move to backlog:`, nonBacklogTasks);
-                  
+
                   // Only call the function if we actually have tasks to move
                   if (tasksUpdated && typeof onSendAllToBacklog === 'function') {
                     console.log('Manually executing send to backlog with updated tasks');

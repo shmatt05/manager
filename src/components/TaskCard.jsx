@@ -228,10 +228,10 @@ export default function TaskCard({
     e.preventDefault();
     e.stopPropagation();
     setMenuOpen(false);
-    
+
     // CRITICAL FIX: Add debug logging and additional safeguards
     console.log(`DEBUG: Explicit move task to ${quadrant} requested for task ID ${task.id}`);
-    
+
     if (onMoveToQuadrant && typeof onMoveToQuadrant === 'function') {
       try {
         // Re-enable move to backlog from context menu - this is an intentional user action
@@ -278,9 +278,6 @@ export default function TaskCard({
               <h3 className={`text-sm font-medium truncate-text select-none ${isCompleted ? 'line-through text-surface-500 dark:text-dark-text-secondary' : 'text-surface-900 dark:text-dark-text-primary'}`}>
                 {title}
               </h3>
-              {description && description.trim() !== '' && (
-                <DocumentTextIcon className="w-3 h-3 flex-shrink-0 text-surface-500 dark:text-dark-text-secondary mt-0.5" />
-              )}
             </div>
 
             {/* Due date */}
@@ -300,10 +297,13 @@ export default function TaskCard({
             )}
           </div>
 
-          {/* Tags */}
-          {tags && tags.length > 0 && (
+          {/* Tags and Description Indicator */}
+          {((tags && tags.length > 0) || (description && description.trim() !== '')) && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {tags.slice(0, 3).map(tag => (
+              {description && description.trim() !== '' && (
+                <span className="text-[#9a9aa8] flex items-center">•</span>
+              )}
+              {tags && tags.length > 0 && tags.slice(0, 3).map(tag => (
                 <span 
                   key={tag} 
                   className="px-1 py-0.5 text-xs rounded-sm bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary select-none"
@@ -311,7 +311,7 @@ export default function TaskCard({
                   #{tag}
                 </span>
               ))}
-              {tags.length > 3 && (
+              {tags && tags.length > 3 && (
                 <span className="px-1 py-0.5 text-xs rounded-sm bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary select-none">
                   +{tags.length - 3}
                 </span>

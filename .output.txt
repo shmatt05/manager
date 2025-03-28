@@ -1,0 +1,299 @@
+diff --git a/src/components/DayPlannerModal.jsx b/src/components/DayPlannerModal.jsx
+index f6fa04c..1c69b9c 100644
+--- a/src/components/DayPlannerModal.jsx
++++ b/src/components/DayPlannerModal.jsx
+@@ -14,22 +14,24 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+   const [decisions, setDecisions] = useState({ do: 0, schedule: 0, delegate: 0, eliminate: 0, backlog: 0 });
+   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
++  const [initialTasks, setInitialTasks] = useState([]);
+   const modalRef = useRef(null);
+-
+-  // Reset state when modal opens
++
++  // Reset state when modal opens and store initial tasks
+   useEffect(() => {
+     if (isOpen) {
+       setCurrentTaskIndex(0);
+       setDecisions({ do: 0, schedule: 0, delegate: 0, eliminate: 0, backlog: 0 });
+       setShowCompletionScreen(false);
++      setInitialTasks([...tasks]); // Store a copy of the initial tasks
+     }
+-  }, [isOpen]);
+-
++  }, [isOpen, tasks]);
++
+   // Handle keyboard shortcuts
+   useEffect(() => {
+     const handleKeyDown = (e) => {
+       if (!isOpen || showCompletionScreen) return;
+-
++
+       // Number keys 1-5 for decisions
+       if (e.key >= '1' && e.key <= '5') {
+         e.preventDefault();
+@@ -42,58 +44,59 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+         };
+         handleDecision(decisionMap[e.key]);
+       }
+-
++
+       // Escape key to close modal
+       if (e.key === 'Escape') {
+         onClose();
+       }
+     };
+-
++
+     window.addEventListener('keydown', handleKeyDown);
+     return () => window.removeEventListener('keydown', handleKeyDown);
+-  }, [isOpen, currentTaskIndex, showCompletionScreen, tasks]);
+-
++  }, [isOpen, currentTaskIndex, showCompletionScreen, initialTasks]);
++
+   const handleDecision = (decision) => {
+-    if (currentTaskIndex >= tasks.length) return;
+-
+-    const currentTask = tasks[currentTaskIndex];
+-
++    if (currentTaskIndex >= initialTasks.length) return;
++
++    const currentTask = initialTasks[currentTaskIndex];
++
+     // Update decisions count
+     setDecisions(prev => ({
+       ...prev,
+       [decision]: prev[decision] + 1
+     }));
+-
++
+     // Call the callback with the decision
+     onTaskDecision(currentTask, decision);
+-
++
+     // Move to next task or show completion screen
+-    if (currentTaskIndex < tasks.length - 1) {
++    if (currentTaskIndex < initialTasks.length - 1) {
+       setCurrentTaskIndex(prev => prev + 1);
+     } else {
++      // Always show completion screen after the last task, regardless of decisions made
+       setShowCompletionScreen(true);
+     }
+   };
+-
++
+   const handleReviewTasks = () => {
+     onClose();
+   };
+-
++
+   // If no tasks, don't render the modal
+-  if (!isOpen || !tasks || tasks.length === 0) return null;
+-
+-  const currentTask = tasks[currentTaskIndex];
++  if (!isOpen || (!initialTasks.length && !tasks.length)) return null;
++
++  const currentTask = initialTasks[currentTaskIndex];
+   const progress = {
+     current: currentTaskIndex + 1,
+-    total: tasks.length,
+-    percentage: Math.round(((currentTaskIndex + 1) / tasks.length) * 100)
++    total: initialTasks.length,
++    percentage: Math.round(((currentTaskIndex + 1) / initialTasks.length) * 100)
+   };
+-
++
+   return (
+     <div className="fixed inset-0 z-50 overflow-hidden">
+       {/* Background overlay with morning gradient */}
+       <div className="absolute inset-0 bg-gradient-to-b from-blue-100 to-amber-50 dark:from-blue-900/30 dark:to-amber-900/20 backdrop-blur-sm opacity-90"></div>
+-
++
+       <div className="relative h-full flex flex-col items-center justify-center p-4">
+         <div
+           ref={modalRef}
+@@ -108,10 +111,10 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+             >
+               <XMarkIcon className="w-6 h-6" />
+             </button>
+-
++
+             <h2 className="text-2xl font-bold">Day Planner</h2>
+             <p className="text-white/80">Decide what matters today</p>
+-
++
+             {/* Progress indicator */}
+             <div className="mt-3 flex items-center">
+               <div className="flex-1 bg-white/20 rounded-full h-2 mr-3">
+@@ -125,7 +128,7 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+               </span>
+             </div>
+           </div>
+-
++
+           {/* Content */}
+           <div className="flex-1 overflow-auto">
+             {showCompletionScreen ? (
+@@ -137,78 +140,86 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+             ) : (
+               <div className="flex flex-col items-center justify-center p-6">
+                 {/* Task Card */}
+-                <div className="w-full max-w-2xl bg-white dark:bg-dark-surface-3 rounded-lg shadow-lg p-6 mb-8">
+-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+-                    {currentTask.title}
+-                  </h3>
+-
+-                  {currentTask.description && (
+-                    <p className="text-gray-700 dark:text-gray-300 mb-4">
+-                      {currentTask.description}
+-                    </p>
+-                  )}
+-
+-                  <div className="flex flex-wrap gap-2 mb-2">
+-                    {currentTask.tags && currentTask.tags.map(tag => (
+-                      <span
+-                        key={tag}
+-                        className="px-2 py-1 text-xs rounded-md bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary"
+-                      >
+-                        #{tag}
+-                      </span>
+-                    ))}
+-                  </div>
+-
+-                  <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+-                    <div>Created: {currentTask.createdAt ? new Date(currentTask.createdAt).toLocaleDateString() : 'N/A'}</div>
+-                    {currentTask.dueDate && (
+-                      <div>Due: {new Date(currentTask.dueDate).toLocaleDateString()}</div>
++                {currentTask ? (
++                  <div className="w-full max-w-2xl bg-white dark:bg-dark-surface-3 rounded-lg shadow-lg p-6 mb-8">
++                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
++                      {currentTask.title}
++                    </h3>
++
++                    {currentTask.description && (
++                      <p className="text-gray-700 dark:text-gray-300 mb-4">
++                        {currentTask.description}
++                      </p>
+                     )}
++
++                    <div className="flex flex-wrap gap-2 mb-2">
++                      {currentTask.tags && currentTask.tags.map(tag => (
++                        <span
++                          key={tag}
++                          className="px-2 py-1 text-xs rounded-md bg-surface-200/70 dark:bg-dark-surface-6/70 text-surface-700 dark:text-dark-text-secondary"
++                        >
++                          #{tag}
++                        </span>
++                      ))}
++                    </div>
++
++                    <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
++                      <div>Created: {currentTask.createdAt ? new Date(currentTask.createdAt).toLocaleDateString() : 'N/A'}</div>
++                      {currentTask.dueDate && (
++                        <div>Due: {new Date(currentTask.dueDate).toLocaleDateString()}</div>
++                      )}
++                    </div>
+                   </div>
+-                </div>
+-
++                ) : (
++                  <div className="w-full max-w-2xl bg-white dark:bg-dark-surface-3 rounded-lg shadow-lg p-6 mb-8 text-center">
++                    <p className="text-gray-700 dark:text-gray-300">No task available</p>
++                  </div>
++                )}
++
+                 {/* Decision Buttons */}
+-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-3xl">
+-                  <DecisionButton
+-                    color="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+-                    icon={<ClockIcon className="w-6 h-6" />}
+-                    text="Do Today"
+-                    onClick={() => handleDecision('do')}
+-                    keyboardShortcut="1"
+-                  />
+-
+-                  <DecisionButton
+-                    color="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+-                    icon={<CalendarIcon className="w-6 h-6" />}
+-                    text="Schedule Soon"
+-                    onClick={() => handleDecision('schedule')}
+-                    keyboardShortcut="2"
+-                  />
+-
+-                  <DecisionButton
+-                    color="bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
+-                    icon={<UserGroupIcon className="w-6 h-6" />}
+-                    text="Delegate"
+-                    onClick={() => handleDecision('delegate')}
+-                    keyboardShortcut="3"
+-                  />
+-
+-                  <DecisionButton
+-                    color="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700"
+-                    icon={<TrashIcon className="w-6 h-6" />}
+-                    text="Eliminate"
+-                    onClick={() => handleDecision('eliminate')}
+-                    keyboardShortcut="4"
+-                  />
+-
+-                  <DecisionButton
+-                    color="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800"
+-                    icon={<ArchiveBoxIcon className="w-6 h-6" />}
+-                    text="Review Later"
+-                    onClick={() => handleDecision('backlog')}
+-                    keyboardShortcut="5"
+-                  />
+-                </div>
++                {currentTask && (
++                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-3xl">
++                    <DecisionButton
++                      color="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
++                      icon={<ClockIcon className="w-6 h-6" />}
++                      text="Do Today"
++                      onClick={() => handleDecision('do')}
++                      keyboardShortcut="1"
++                    />
++
++                    <DecisionButton
++                      color="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
++                      icon={<CalendarIcon className="w-6 h-6" />}
++                      text="Schedule Soon"
++                      onClick={() => handleDecision('schedule')}
++                      keyboardShortcut="2"
++                    />
++
++                    <DecisionButton
++                      color="bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
++                      icon={<UserGroupIcon className="w-6 h-6" />}
++                      text="Delegate"
++                      onClick={() => handleDecision('delegate')}
++                      keyboardShortcut="3"
++                    />
++
++                    <DecisionButton
++                      color="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700"
++                      icon={<TrashIcon className="w-6 h-6" />}
++                      text="Eliminate"
++                      onClick={() => handleDecision('eliminate')}
++                      keyboardShortcut="4"
++                    />
++
++                    <DecisionButton
++                      color="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800"
++                      icon={<ArchiveBoxIcon className="w-6 h-6" />}
++                      text="Review Later"
++                      onClick={() => handleDecision('backlog')}
++                      keyboardShortcut="5"
++                    />
++                  </div>
++                )}
+               </div>
+             )}
+           </div>
+@@ -216,4 +227,4 @@ export default function DayPlannerModal({ isOpen, onClose, tasks, onTaskDecision
+       </div>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
