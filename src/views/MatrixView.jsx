@@ -18,6 +18,7 @@ import DeleteDialog from '../components/DeleteDialog';
 import { auth } from '../firebase';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useTour } from '../contexts/TourContext';
 
 const isFirebaseEnabled = import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true';
 
@@ -135,6 +136,7 @@ function Quadrant({ id, title, description, className, tasks, onTaskEdit, onTask
 
   return (
     <div 
+      id={id}
       ref={setNodeRef}
       className={`relative flex flex-col h-full overflow-hidden ${className} ${lightBg} ${darkBg} rounded-md border transition-colors duration-200 ${isHighlighted ? 'ring-2 ring-primary-300/30 dark:ring-primary-500/20' : ''}`}
     >
@@ -198,7 +200,7 @@ export default function MatrixView({
   const [showRipple, setShowRipple] = useState(false);
   const [isSendingToBacklog, setIsSendingToBacklog] = useState(false); // Track if we're sending to backlog
   const [isDraggingTask, setIsDraggingTask] = useState(false); // CRITICAL FIX: Add state to track drag operations
-  
+
   // Add CSS animation for the 3D cube
   useEffect(() => {
     // Add the animation style to the document head if it doesn't exist
@@ -210,35 +212,35 @@ export default function MatrixView({
           from { transform: rotateY(0deg); }
           to { transform: rotateY(360deg); }
         }
-        
+
         @keyframes spin-o {
           from { transform: rotateY(0deg); }
           to { transform: rotateY(360deg); }
         }
-        
+
         .t-3d-part {
           position: absolute;
           background: linear-gradient(135deg, #6366f1, #8b5cf6);
           box-shadow: 0 1px 3px rgba(0,0,0,0.2);
           border-radius: 1px;
         }
-        
+
         .o-3d-part {
           position: absolute;
           border-radius: 3px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
-        
+
         .t-spinner {
           animation: spin-t 8s linear infinite;
           transform-style: preserve-3d;
         }
-        
+
         .o-spinner {
           animation: spin-o 10s linear infinite;
           transform-style: preserve-3d;
         }
-        
+
         .t-horizontal {
           width: 46px;
           height: 12px;
@@ -247,7 +249,7 @@ export default function MatrixView({
           transform: translateX(-50%);
           clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%);
         }
-        
+
         .t-vertical {
           width: 12px;
           height: 60px;
@@ -256,7 +258,7 @@ export default function MatrixView({
           transform: translateX(-50%);
           clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%);
         }
-        
+
         .o-ring {
           width: 46px;
           height: 46px;
@@ -273,21 +275,21 @@ export default function MatrixView({
           color: #8b5cf6;
           transform-style: preserve-3d;
         }
-        
+
         .o-slash {
           display: inline-block;
           transform: rotate(-45deg);
           margin-bottom: 5px;
           text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-        
+
         .preserve-3d {
           transform-style: preserve-3d;
         }
       `;
       document.head.appendChild(style);
     }
-    
+
     return () => {
       // Clean up the style when component unmounts
       const styleElement = document.getElementById('cube-animation-style');
@@ -458,6 +460,9 @@ export default function MatrixView({
     }
   }, [tasks]);
 
+  // Get tour context to handle tour progression
+  const { isTourOpen, tourStep, nextStep } = useTour();
+
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
     console.log('Drag end - active:', active?.id, 'over:', over?.id);
@@ -528,6 +533,11 @@ export default function MatrixView({
         if (currentQuadrant !== targetQuadrant) {
           // Moving to a different quadrant by dropping on a task in that quadrant
           console.log('Moving between quadrants via task drop:', currentQuadrant, '->', targetQuadrant);
+
+          // If the tour is open and we're on step 3 (index 2), advance to the next step
+          if (isTourOpen && tourStep === 2) {
+            nextStep();
+          }
 
           const updatedTask = {
             ...task,
@@ -631,6 +641,12 @@ export default function MatrixView({
 
       if (currentQuadrant !== targetQuadrant) {
         console.log('Updating task for new quadrant');
+
+        // If the tour is open and we're on step 3 (index 2), advance to the next step
+        if (isTourOpen && tourStep === 2) {
+          nextStep();
+        }
+
         const updatedTask = {
           ...task,
           scheduledFor: targetQuadrant === 'backlog' ? 'backlog' : 'today',
@@ -700,7 +716,7 @@ export default function MatrixView({
         }
       }, 500); // Add a small delay to ensure any pending operations complete
     }
-  }, [onTaskUpdate, getTaskQuadrant]); // Remove localTasks from dependencies
+  }, [onTaskUpdate, getTaskQuadrant, isTourOpen, tourStep, nextStep]); // Include tour-related dependencies
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
@@ -1004,7 +1020,7 @@ export default function MatrixView({
                         <div className="absolute t-3d-part t-vertical"></div>
                       </div>
                     </div>
-                    
+
                     {/* 3D O Character with slash */}
                     <div className="w-16 h-16 perspective-[800px] flex items-center justify-center relative -ml-2 mt-1 mr-1">
                       <div className="o-spinner w-full h-full flex items-center justify-center">
@@ -1029,7 +1045,7 @@ export default function MatrixView({
           )}
 
           {/* Main matrix container - use grid for rows and columns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 matrix-container">
             {/* Top row - first quadrant */}
             <div className="h-full">
               <Quadrant

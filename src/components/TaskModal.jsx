@@ -176,6 +176,22 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
     }
   }, [isOpen, task]);
 
+  // Handle tour events to close the modal
+  useEffect(() => {
+    const handleTourCloseModal = () => {
+      if (isOpen) {
+        console.log('TaskModal: Received tour:close-modal event, closing modal');
+        onClose();
+      }
+    };
+
+    document.addEventListener('tour:close-modal', handleTourCloseModal);
+    
+    return () => {
+      document.removeEventListener('tour:close-modal', handleTourCloseModal);
+    };
+  }, [isOpen, onClose]);
+
   const handleClickOutside = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) {
       onClose();
@@ -261,10 +277,13 @@ export default function TaskModal({ task, isOpen, onClose, onSave }) {
     <div 
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={handleClickOutside}
+      data-tour-element="task-modal-container"
     >
       <div 
         ref={modalRef} 
-        className="bg-white dark:bg-dark-surface-2 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white dark:bg-dark-surface-2 rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col task-modal"
+        data-tour-id="task-modal"
+        style={{ zIndex: 11000 }}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-surface-6 px-5 py-3">

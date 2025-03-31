@@ -251,8 +251,9 @@ export default function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
+      data-task-id={task.id}
       className={`
-        compact-card relative cursor-pointer
+        compact-card relative cursor-pointer task-card
         ${priorityColors[priority]?.bg || 'bg-surface-100'} 
         ${priorityColors[priority]?.darkBg || 'dark:bg-dark-card-eliminate'}
         ${priorityColors[priority]?.border || 'border-surface-300/50'} 

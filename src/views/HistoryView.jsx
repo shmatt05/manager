@@ -26,6 +26,19 @@ export default function HistoryView() {
   const [limitCount, setLimitCount] = useState(20);
   const { isProd, useFirebase } = config;
 
+  // Listen for tour:show-export event to show export options during the tour
+  useEffect(() => {
+    const handleShowExport = () => {
+      console.log('HistoryView: Received tour:show-export event, showing export options');
+      setShowExport(true);
+    };
+
+    document.addEventListener('tour:show-export', handleShowExport);
+    return () => {
+      document.removeEventListener('tour:show-export', handleShowExport);
+    };
+  }, []);
+
   useEffect(() => {
     // For development or when Firebase is not used
     if (!useFirebase) {
@@ -52,7 +65,7 @@ export default function HistoryView() {
       try {
         const historyRef = collection(db, `users/${user.uid}/taskHistory`);
         const q = query(historyRef, orderBy('timestamp', 'desc'), limit(100));
-        
+
         const unsubscribe = onSnapshot(q, 
           (snapshot) => {
             const historyData = snapshot.docs.map(doc => ({
@@ -68,7 +81,7 @@ export default function HistoryView() {
             setLoading(false);
           }
         );
-        
+
         return () => unsubscribe();
       } catch (error) {
         console.error('Error setting up history listener:', error);
@@ -99,7 +112,7 @@ export default function HistoryView() {
       let historyToExport = useFirebase 
         ? [...history] 
         : JSON.parse(localStorage.getItem('taskHistory') || '[]');
-      
+
       // Apply filters if requested
       if (filtered) {
         // Filter by date range if needed
@@ -112,29 +125,29 @@ export default function HistoryView() {
             });
           });
         }
-        
+
         // Filter by action types
         historyToExport = historyToExport.filter(entry => 
           entry.action && selectedActions[entry.action]
         );
       }
-      
+
       // Create a Blob with the JSON data
       const historyBlob = new Blob(
         [JSON.stringify(historyToExport, null, 2)], 
         { type: 'application/json' }
       );
-      
+
       // Create download link
       const url = URL.createObjectURL(historyBlob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `task-history-${format(new Date(), 'yyyy-MM-dd-HH-mm')}.json`;
-      
+
       // Trigger download
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
@@ -180,7 +193,7 @@ export default function HistoryView() {
           <h1 className="text-2xl font-medium text-surface-800 dark:text-dark-text-primary select-none">
             Task History
           </h1>
-          
+
           {history.length > 0 && (
             <button 
               onClick={() => setShowExport(!showExport)}
@@ -189,19 +202,20 @@ export default function HistoryView() {
                 text-white rounded-md shadow-dp1 hover:shadow-dp2 active:shadow-dp1
                 text-sm font-medium transition-all duration-200
                 flex items-center gap-2 relative overflow-hidden"
+              data-tour-id="export-options"
             >
               <span className="select-none">{showExport ? 'Hide Export Options' : 'Export History'}</span>
             </button>
           )}
         </div>
-      
+
       {/* Export options with Material Design card styling */}
       {showExport && (
-        <div className="bg-surface-50 dark:bg-dark-surface-2 shadow-dp2 dark:shadow-dp1 rounded-lg mb-4 animate-scale-in overflow-hidden">
+        <div className="bg-surface-50 dark:bg-dark-surface-2 shadow-dp2 dark:shadow-dp1 rounded-lg mb-4 animate-scale-in overflow-hidden" data-tour-id="export-options">
           <div className="px-5 py-4 border-b border-surface-200 dark:border-dark-surface-6">
             <h2 className="text-lg font-medium text-surface-800 dark:text-dark-text-primary select-none">Export Options</h2>
           </div>
-          
+
           <div className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Date range selection with floating labels */}
@@ -240,7 +254,7 @@ export default function HistoryView() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Action type checkboxes with Material Design styling */}
               <div>
                 <h3 className="text-md font-medium mb-3 text-surface-700 dark:text-dark-text-secondary select-none">Action Types</h3>
@@ -253,7 +267,7 @@ export default function HistoryView() {
                       COMPLETE: 'bg-primary-900/10 text-primary-800 dark:bg-primary-900/20 dark:text-primary-300',
                       REOPEN: 'bg-warning/10 text-warning dark:bg-warning/20 dark:text-warning/90',
                     }[action] || 'bg-surface-200 text-surface-700 dark:bg-dark-surface-4 dark:text-dark-text-secondary';
-                    
+
                     return (
                       <div key={action} className="flex items-center gap-2">
                         <input 
@@ -275,7 +289,7 @@ export default function HistoryView() {
                 </div>
               </div>
             </div>
-            
+
             {/* Action buttons with Material Design styling */}
             <div className="mt-5 flex gap-3 justify-end">
               <button 
@@ -299,7 +313,7 @@ export default function HistoryView() {
           </div>
         </div>
       )}
-      
+
       {/* History list with Material Design cards */}
       {history.length === 0 ? (
         <div className="bg-surface-50 dark:bg-dark-surface-2 shadow-dp2 dark:shadow-dp1 rounded-lg p-6 text-center">

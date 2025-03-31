@@ -202,4 +202,110 @@ input, textarea, select {
 }
 .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
   @apply bg-surface-400 dark:bg-dark-surface-8;
+}
+
+/* Define a pulse animation for the newly created task */
+@keyframes tour-highlight-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+.tour-highlight-pulse {
+  animation: tour-highlight-pulse 1.5s ease-out 3;
+  position: relative;
+  z-index: 10;
+}
+
+/* Fix for task modal during tour step 3 */
+.task-modal[data-tour-id="task-modal"] {
+  z-index: 11000 !important;
+  pointer-events: auto !important;
+}
+
+/* Make react-joyride overlay transparent in step 3 */
+.react-joyride__overlay--3 {
+  background-color: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Completely remove spotlight in step 3 */
+div[data-tour-step="3"] .react-joyride__spotlight {
+  display: none !important;
+}
+
+/* Force tooltip position in step 3 */
+div[data-tour-step="3"] .react-joyride__tooltip {
+  position: fixed !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 11000 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  bottom: auto !important;
+  right: auto !important;
+}
+
+/* Fix for react-joyride positioning issues */
+.react-joyride__tooltip[style*="position: fixed"] {
+  top: 20px !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
+}
+
+/* Override any transform that might be repositioning the tooltip */
+[data-tour-step="3"] [class*="react-joyride"] {
+  transform: none !important;
+}
+
+[data-tour-step="3"] .react-joyride__tooltip {
+  transform: translateX(-50%) !important; 
+}
+
+/* Extra safety to force tooltip to top */
+body.tour-active .react-joyride__tooltip {
+  top: 20px !important;
+}
+
+/* Ensure spotlight clicks work in step 3 */
+.react-joyride__spotlight {
+  pointer-events: none !important;
 } 
+
+/* Step 4 specific styles - Brighten the matrix view and highlight quadrants */
+body:has([data-tour-step="4"]) .react-joyride__overlay {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Make the matrix container brighter during step 4 */
+body:has([data-tour-step="4"]) .matrix-container {
+  filter: brightness(1.1);
+}
+
+/* Add bright frames around the "do" and "schedule" quadrant divs for step 4 */
+body:has([data-tour-step="4"]) #urgent-important {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 15px rgba(59, 130, 246, 0.5) !important;
+  z-index: 5;
+  position: relative;
+}
+
+body:has([data-tour-step="4"]) #not-urgent-important {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 15px rgba(59, 130, 246, 0.5) !important;
+  z-index: 5;
+  position: relative;
+}
+
+/* Add a class that can be added to the body element for step 4 as a fallback for browsers that don't support :has */
+.tour-step-4 .matrix-container {
+  filter: brightness(1.1);
+}
+
+.tour-step-4 #urgent-important,
+.tour-step-4 #not-urgent-important {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.7), 0 0 15px rgba(59, 130, 246, 0.5) !important;
+  z-index: 5;
+  position: relative;
+}

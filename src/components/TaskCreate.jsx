@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { parse, set, addDays } from 'date-fns';
+import { useTour } from '../contexts/TourContext';
 
 // Helper function to parse time string
 const parseTimeString = (timeStr) => {
@@ -86,9 +87,64 @@ const TaskCreate = ({ onCreateTask }) => {
   const [taskText, setTaskText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef(null);
+  const { isTourOpen, tourStep, nextStep } = useTour();
+  const [isTypingAnimation, setIsTypingAnimation] = useState(false);
+  const [isButtonHighlighted, setIsButtonHighlighted] = useState(false);
+  const exampleText = "Review reports @2pm #do";
+  const typingTimerRef = useRef(null);
+
+  // Handle tour step 2 - typing animation and button highlighting
+  useEffect(() => {
+    // Check if tour is open and we're on step 2 (index 1)
+    if (isTourOpen && tourStep === 1) {
+      let currentIndex = 0;
+      setIsTypingAnimation(true);
+      setTaskText('');
+
+      // Clear any existing timer
+      if (typingTimerRef.current) {
+        clearInterval(typingTimerRef.current);
+      }
+
+      // Start typing animation
+      typingTimerRef.current = setInterval(() => {
+        if (currentIndex < exampleText.length) {
+          setTaskText(exampleText.substring(0, currentIndex + 1));
+          currentIndex++;
+        } else {
+          // Typing complete, clear interval and highlight button
+          clearInterval(typingTimerRef.current);
+          setIsTypingAnimation(false);
+          setIsButtonHighlighted(true);
+        }
+      }, 100); // Adjust speed as needed
+
+      // Focus the input
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    } else {
+      // Reset when not on step 2
+      setIsButtonHighlighted(false);
+    }
+
+    // Cleanup function
+    return () => {
+      if (typingTimerRef.current) {
+        clearInterval(typingTimerRef.current);
+      }
+      setIsTypingAnimation(false);
+      setIsButtonHighlighted(false);
+    };
+  }, [isTourOpen, tourStep, exampleText]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('TaskCreate: handleSubmit triggered');
+    console.log('TaskCreate: Current tour step:', tourStep);
+    console.log('TaskCreate: isTourOpen:', isTourOpen);
+    console.log('TaskCreate: data-tour-task-adding attribute present:', document.body.hasAttribute('data-tour-task-adding'));
+    
     const text = inputRef.current.value.trim();
     if (!text) return;
 
@@ -122,16 +178,32 @@ const TaskCreate = ({ onCreateTask }) => {
       dueDate
     };
 
+    console.log('TaskCreate: Creating task:', task);
     onCreateTask(task);
     inputRef.current.value = '';
     setTaskText('');
     setIsOpen(false);
+
+    // If we're in step 2 of the tour, advance to the next step
+    // Skip if the tour element has the 'from-tour-demo' attribute, which means
+    // TaskInputDemo will handle the tour advancement
+    if (isTourOpen && tourStep === 1 && !document.body.hasAttribute('data-tour-task-adding')) {
+      console.log('TaskCreate: Tour conditions met, advancing to next step');
+      console.log('TaskCreate: Calling nextStep() to advance from step', tourStep);
+      nextStep();
+      console.log('TaskCreate: After nextStep(), current step is now', tourStep);
+    } else {
+      console.log('TaskCreate: Not advancing tour - conditions not met:');
+      console.log('  - isTourOpen:', isTourOpen);
+      console.log('  - tourStep === 1:', tourStep === 1);
+      console.log('  - !data-tour-task-adding:', !document.body.hasAttribute('data-tour-task-adding'));
+    }
   };
 
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="w-full max-w-xl flex gap-1"
+      className="w-full max-w-xl flex gap-1 task-create-form"
     >
       <input
         type="text"
@@ -148,10 +220,14 @@ const TaskCreate = ({ onCreateTask }) => {
       <button
         type="submit"
         disabled={!taskText.trim()}
-        className="px-3 py-1 text-white text-sm bg-blue-500 dark:bg-blue-600 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700
-                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        className={`px-3 py-1 text-white text-sm bg-blue-500 dark:bg-blue-600 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700
+                 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium relative
+                 ${isButtonHighlighted ? 'ring-4 ring-blue-300 dark:ring-blue-500/50 animate-pulse' : ''}`}
       >
         Add
+        {isButtonHighlighted && (
+          <span className="absolute inset-0 rounded-md bg-blue-400/20 dark:bg-blue-500/30 animate-ping"></span>
+        )}
       </button>
     </form>
   );

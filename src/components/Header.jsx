@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { config } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { useTour } from '../contexts/TourContext';
 import clsx from 'clsx';
-import { SunIcon } from '@heroicons/react/24/outline';
+import { SunIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import DayPlannerModal from './DayPlannerModal';
 
-function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, backlogTasks, onTaskDecision }) {
+function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, backlogTasks, onTaskDecision, tourEnabled }) {
   const [isDayPlannerOpen, setIsDayPlannerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const { user, signOut } = useAuth();
+  const { startTour } = useTour();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -45,6 +47,16 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
           </div>
 
           <div className="flex items-center">
+            {/* Tour button */}
+            <button
+              onClick={startTour}
+              className="mr-2 h-[30px] px-3 text-[12px] bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md flex items-center justify-center transition-all duration-200 hover:shadow-md transform hover:translate-y-[-1px] group select-none"
+              title="Start a guided tour of the application"
+            >
+              <QuestionMarkCircleIcon className="w-2 h-2 mr-1 text-white flex-shrink-0" />
+              <span className="whitespace-nowrap">Tour</span>
+            </button>
+
             {/* Plan My Day button - only shown when there are backlog tasks */}
             {backlogTasks && backlogTasks.length > 0 && (
               <button
@@ -152,6 +164,7 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
                   ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400" 
                   : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               )}
+              data-tour-id={tourEnabled && (tab.id === 'completed' || tab.id === 'history') ? `${tab.id}-tab` : undefined}
             >
               {tab.label}
             </button>
