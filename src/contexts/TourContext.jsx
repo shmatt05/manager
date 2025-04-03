@@ -76,14 +76,26 @@ export const TourProvider = ({ children }) => {
       disableBeacon: true,
       placement: 'right',
       spotlightPadding: 20,
+      disableOverlay: true,
+      showArrow: true,
       styles: {
         tooltip: {
           maxWidth: '350px',
-          zIndex: 10000,
-          position: 'relative',
-          left: '50px',
+          zIndex: 10000
         },
+        overlay: {
+          backgroundColor: 'transparent'
+        }
       },
+      floaterProps: {
+        disableAnimation: false,
+        styles: {
+          arrow: {
+            length: 8,
+            margin: 8
+          }
+        }
+      }
     },
     {
       target: '[data-tour-id="completed-tab"]',
@@ -93,34 +105,25 @@ export const TourProvider = ({ children }) => {
       placement: 'right',
       spotlightPadding: 20,
       disableOverlay: true,
-      showArrow: false,
+      showArrow: true,
       styles: {
         tooltip: {
           maxWidth: '350px',
-          zIndex: 10000,
-          position: 'fixed',
-          right: '20px',
-          left: 'auto',
-          top: '50%',
-          transform: 'translateY(-50%)',
+          zIndex: 10000
         },
         overlay: {
-          backgroundColor: 'transparent',
-        },
-      },
-      floaterProps: {
-        disableAnimation: true,
-        showArrow: false,
-        styles: {
-          floater: {
-            position: 'fixed',
-            right: '20px',
-            left: 'auto',
-            top: '50%',
-            transform: 'translateY(-50%)',
-          }
+          backgroundColor: 'transparent'
         }
       },
+      floaterProps: {
+        disableAnimation: false,
+        styles: {
+          arrow: {
+            length: 8,
+            margin: 8
+          }
+        }
+      }
     },
     {
       target: '[data-tour-id="history-tab"]',
@@ -130,34 +133,25 @@ export const TourProvider = ({ children }) => {
       placement: 'right',
       spotlightPadding: 20,
       disableOverlay: true,
-      showArrow: false,
+      showArrow: true,
       styles: {
         tooltip: {
           maxWidth: '350px',
-          zIndex: 10000,
-          position: 'fixed',
-          right: '20px',
-          left: 'auto',
-          top: '50%',
-          transform: 'translateY(-50%)',
+          zIndex: 10000
         },
         overlay: {
-          backgroundColor: 'transparent',
-        },
-      },
-      floaterProps: {
-        disableAnimation: true,
-        showArrow: false,
-        styles: {
-          floater: {
-            position: 'fixed',
-            right: '20px',
-            left: 'auto',
-            top: '50%',
-            transform: 'translateY(-50%)',
-          }
+          backgroundColor: 'transparent'
         }
       },
+      floaterProps: {
+        disableAnimation: false,
+        styles: {
+          arrow: {
+            length: 8,
+            margin: 8
+          }
+        }
+      }
     },
     {
       target: '[data-tour-id="export-options"]',
@@ -567,13 +561,9 @@ export const TourProvider = ({ children }) => {
   const nextStep = useCallback(() => {
     console.log('TourContext: nextStep called, current step:', tourStep);
 
-    // If we're on step 1 and a task was just created, we should always allow advancement
-    // This fixes the issue where the second nextStep call is ignored due to cooldown
-    const isTaskCreationStep = tourStep === 1;
-
-    if (cooldownRef.current && !isTaskCreationStep) {
-      console.log('TourContext: Ignoring nextStep call - cooldown active');
-      return;
+    // Log if cooldown is active, but don't return early
+    if (cooldownRef.current) {
+      console.log('TourContext: Cooldown active for nextStep, but proceeding anyway');
     }
 
     // Set cooldown to prevent rapid multiple advancements
@@ -595,14 +585,14 @@ export const TourProvider = ({ children }) => {
     // Reset cooldown after 1 second
     setTimeout(() => {
       cooldownRef.current = false;
-      console.log('TourContext: Step advancement cooldown reset');
+      console.log('TourContext: Next step cooldown reset');
     }, 1000);
   }, [tourStep]);
 
   const prevStep = useCallback(() => {
+    // Log if cooldown is active, but don't return early
     if (cooldownRef.current) {
-      console.log('TourContext: Ignoring prevStep call - cooldown active');
-      return;
+      console.log('TourContext: Cooldown active for prevStep, but proceeding anyway');
     }
 
     // Set cooldown to prevent rapid multiple advancements
@@ -613,13 +603,14 @@ export const TourProvider = ({ children }) => {
     // Reset cooldown after 1 second
     setTimeout(() => {
       cooldownRef.current = false;
+      console.log('TourContext: Prev step cooldown reset');
     }, 1000);
   }, []);
 
   const goToStep = useCallback((step) => {
+    // Log if cooldown is active, but don't return early
     if (cooldownRef.current) {
-      console.log('TourContext: Ignoring goToStep call - cooldown active');
-      return;
+      console.log('TourContext: Cooldown active for goToStep, but proceeding anyway');
     }
 
     // Set cooldown to prevent rapid multiple advancements
@@ -630,16 +621,23 @@ export const TourProvider = ({ children }) => {
     // Reset cooldown after 1 second
     setTimeout(() => {
       cooldownRef.current = false;
+      console.log('TourContext: Go to step cooldown reset');
     }, 1000);
   }, []);
 
   const handleJoyrideCallback = useCallback((data) => {
     const { action, index, status, type } = data;
 
+    console.log('TourContext: handleJoyrideCallback called with', { action, type, status });
+
     if (type === 'step:after' && action === 'next') {
       nextStep();
     } else if (type === 'step:after' && action === 'prev') {
       prevStep();
+    } else if (action === 'close') {
+      // Explicitly handle close action (X button click)
+      console.log('TourContext: Close button clicked, stopping tour');
+      stopTour();
     } else if (status === 'finished' || status === 'skipped') {
       stopTour();
     }

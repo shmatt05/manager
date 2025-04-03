@@ -444,7 +444,7 @@ function AppContent() {
               zIndex: tourStep === 2 ? 9000 : 10000,
             }
           }}
-          disableOverlayClose={tourStep !== 2}
+          disableOverlayClose={false}
           disableOverlay={tourStep === 2 || tourStep === 4}
           disableCloseOnEsc={false}
           spotlightClicks={true}

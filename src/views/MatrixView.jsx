@@ -390,12 +390,10 @@ export default function MatrixView({
   useEffect(() => {
     // Initialize the flag to false when the component mounts
     isUpdatingRef.current = false;
-    console.log('Initializing isUpdatingRef.current to false on mount');
 
     // Reset the flag to false when the component unmounts
     return () => {
       if (isUpdatingRef.current) {
-        console.log('Cleanup: Resetting isUpdatingRef.current to false on unmount');
         isUpdatingRef.current = false;
       }
     };
@@ -407,7 +405,6 @@ export default function MatrixView({
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (isUpdatingRef.current && !isDraggingRef.current && !isSendingToBacklog) {
-        console.log('Periodic check: Resetting isUpdatingRef.current to false');
         isUpdatingRef.current = false;
       }
     }, 5000); // Check every 5 seconds
@@ -449,7 +446,6 @@ export default function MatrixView({
 
   const handleDragStart = useCallback((event) => {
     const { active } = event;
-    console.log('Drag start:', active.id);
     setActiveId(active.id);
     isDraggingRef.current = true;
     setIsDraggingTask(true); // CRITICAL FIX: Set the dragging task state flag
@@ -465,10 +461,6 @@ export default function MatrixView({
 
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
-    console.log('Drag end - active:', active?.id, 'over:', over?.id);
-
-    // DEBUGGING: Check if this is triggering Send All to Backlog
-    console.log('🔍 DEBUG: handleDragEnd called, checking if this triggers backlog operations');
 
     // Use a slight delay to ensure smooth animation
     setTimeout(() => {
@@ -478,20 +470,16 @@ export default function MatrixView({
     }, 50);
 
     if (!over || !active) {
-      console.log('No over or active target, canceling drag');
       setIsDraggingTask(false); // CRITICAL FIX: Reset the dragging task state flag immediately on cancel
       return;
     }
 
-    // DEBUGGING: Extra log to check call stack
-    console.log('🔍 DEBUG: handleDragEnd proceeding with drag processing');
 
     // Use the ref to access the latest localTasks
     const currentLocalTasks = localTasksRef.current;
 
     const task = currentLocalTasks.find(t => t.id === active.id);
     if (!task) {
-      console.log('Task not found in localTasks');
       return;
     }
 
@@ -499,24 +487,20 @@ export default function MatrixView({
     const isOverTask = over.id.toString().includes('task-');
     const isOverQuadrant = Object.keys(QUADRANTS).some(q => q === over.id);
 
-    console.log('Is over task:', isOverTask, 'Is over quadrant:', isOverQuadrant);
 
     // If not over a task or quadrant, cancel the drag
     if (!isOverTask && !isOverQuadrant) {
-      console.log('Not over a valid target, canceling drag');
       return;
     }
 
     // Set the updating flag to prevent the useEffect from running
     isUpdatingRef.current = true;
-    console.log('Setting isUpdatingRef.current to true');
 
     try {
       // If dropped on a task, we need to determine if it's in a different quadrant
       if (isOverTask) {
         const overTask = currentLocalTasks.find(t => t.id === over.id);
         if (!overTask) {
-          console.log('Over task not found');
           return;
         }
 
@@ -528,11 +512,8 @@ export default function MatrixView({
           ? getTaskQuadrant(overTask, true) // Ignore scheduledFor for backlog tasks
           : getTaskQuadrant(overTask);
 
-        console.log('Current task quadrant:', currentQuadrant, 'Target task quadrant:', targetQuadrant);
-
         if (currentQuadrant !== targetQuadrant) {
           // Moving to a different quadrant by dropping on a task in that quadrant
-          console.log('Moving between quadrants via task drop:', currentQuadrant, '->', targetQuadrant);
 
           // If the tour is open and we're on step 3 (index 2), advance to the next step
           if (isTourOpen && tourStep === 2) {
@@ -574,28 +555,24 @@ export default function MatrixView({
 
           setLocalTasks(updatedLocalTasks);
 
-          console.log('Calling onTaskUpdate');
           const updatePromise = onTaskUpdate(updatedLocalTasks);
 
           // Handle the promise properly
           updatePromise
             .then(() => {
-              console.log('Task update completed successfully');
+              // Task update completed successfully
             })
             .catch((error) => {
               console.error('Error updating task:', error);
             })
             .finally(() => {
-              console.log('Task update completed');
               pendingUpdatesRef.current.delete(updatedTask.id);
               isUpdatingRef.current = false; // Reset the updating flag
-              console.log('Reset isUpdatingRef.current to false');
             });
           return;
         }
 
         // Same quadrant, handle sorting
-        console.log('Sorting within the same quadrant');
         const oldIndex = currentLocalTasks.findIndex(t => t.id === active.id);
         const newIndex = currentLocalTasks.findIndex(t => t.id === over.id);
 
@@ -608,13 +585,12 @@ export default function MatrixView({
 
           setLocalTasks(updatedLocalTasks);
 
-          console.log('Calling onTaskUpdate');
           const updatePromise = onTaskUpdate(updatedLocalTasks);
 
           // Handle the promise properly
           updatePromise
             .then(() => {
-              console.log('Task update completed successfully');
+              // Task update completed successfully
             })
             .catch((error) => {
               console.error('Error updating task:', error);
@@ -624,7 +600,6 @@ export default function MatrixView({
                 pendingUpdatesRef.current.delete(task.id);
               });
               isUpdatingRef.current = false; // Reset the updating flag
-              console.log('Reset isUpdatingRef.current to false');
             });
         } else {
           isUpdatingRef.current = false; // Reset the updating flag if no changes
@@ -637,10 +612,8 @@ export default function MatrixView({
       // For tasks in backlog, we need to determine their quadrant based on priority and tags
       const currentQuadrant = getTaskQuadrant(task);
 
-      console.log('Moving between quadrants:', currentQuadrant, '->', targetQuadrant);
-
       if (currentQuadrant !== targetQuadrant) {
-        console.log('Updating task for new quadrant');
+        // Updating task for new quadrant
 
         // If the tour is open and we're on step 3 (index 2), advance to the next step
         if (isTourOpen && tourStep === 2) {
@@ -682,36 +655,30 @@ export default function MatrixView({
 
         setLocalTasks(updatedLocalTasks);
 
-        console.log('Calling onTaskUpdate');
         const updatePromise = onTaskUpdate(updatedLocalTasks);
 
         // Handle the promise properly
         updatePromise
           .then(() => {
-            console.log('Task update completed successfully');
+            // Task update completed successfully
           })
           .catch((error) => {
             console.error('Error updating task:', error);
           })
           .finally(() => {
-            console.log('Task update completed');
             pendingUpdatesRef.current.delete(updatedTask.id);
             isUpdatingRef.current = false; // Reset the updating flag
-            console.log('Reset isUpdatingRef.current to false');
           });
       } else {
-        console.log('Same quadrant, no update needed');
         isUpdatingRef.current = false; // Reset the updating flag
       }
     } catch (error) {
       console.error('Error in handleDragEnd:', error);
       isUpdatingRef.current = false; // Make sure to reset the flag even if there's an error
-      console.log('Reset isUpdatingRef.current to false after error');
     } finally {
       // Ensure the flag is reset even if there's an error or if the promise is not properly handled
       setTimeout(() => {
         if (isUpdatingRef.current) {
-          console.log('Ensuring isUpdatingRef.current is reset to false');
           isUpdatingRef.current = false;
         }
       }, 500); // Add a small delay to ensure any pending operations complete
@@ -775,17 +742,13 @@ export default function MatrixView({
   }, [localTasks]);
 
   const handleSendAllToBacklog = useCallback(() => {
-    console.log('Explicit backlog action started by user');
-
     // CRITICAL FIX: Check if we're in the middle of a drag operation
     if (isDraggingTask || isDraggingRef.current) {
-      console.log('Cannot send to backlog while dragging tasks, ignoring request');
       return;
     }
 
     // Prevent multiple clicks while an update is in progress
     if (isSendingToBacklog) {
-      console.log('Already sending to backlog, ignoring click');
       return;
     }
 
@@ -802,11 +765,8 @@ export default function MatrixView({
     });
 
     if (tasksToMove.length === 0) {
-      console.log('No tasks to move to backlog');
       return;
     }
-
-    console.log(`Moving ${tasksToMove.length} tasks to backlog`);
 
     // Set loading state to prevent multiple clicks
     setIsSendingToBacklog(true);
@@ -814,7 +774,6 @@ export default function MatrixView({
     try {
       // Set the updating flag
       isUpdatingRef.current = true;
-      console.log('Setting isUpdatingRef.current to true in handleSendAllToBacklog');
 
       const updatedTasks = currentLocalTasks.map(task => {
         // Only move tasks that are not completed and not already in backlog
@@ -842,22 +801,19 @@ export default function MatrixView({
         pendingUpdatesRef.current.set(task.id, task);
       });
 
-      console.log('Calling onTaskUpdate from handleSendAllToBacklog');
       return onTaskUpdate(updatedTasks)
         .then(() => {
-          console.log('Task update completed successfully in handleSendAllToBacklog');
+          // Task update completed successfully
         })
         .catch((error) => {
           console.error('Error updating tasks in handleSendAllToBacklog:', error);
         })
         .finally(() => {
-          console.log('Task update completed in handleSendAllToBacklog');
           updatedTasks.forEach(task => {
             pendingUpdatesRef.current.delete(task.id);
           });
           isUpdatingRef.current = false; // Reset the updating flag
           setIsSendingToBacklog(false); // Reset the loading state
-          console.log('Reset isUpdatingRef.current and isSendingToBacklog to false in handleSendAllToBacklog');
         });
     } catch (error) {
       console.error('Error in handleSendAllToBacklog:', error);
@@ -868,16 +824,8 @@ export default function MatrixView({
   }, [onTaskUpdate, isDraggingTask, getTaskQuadrant]); // Added isDraggingTask and getTaskQuadrant to dependencies
 
   const handleMoveToQuadrant = useCallback((taskId, targetQuadrant) => {
-    console.log('DEBUG: handleMoveToQuadrant called with taskId:', taskId, 'targetQuadrant:', targetQuadrant);
-
-    // Re-enable intentional backlog operations
-    if (targetQuadrant === 'backlog') {
-      console.log('SAFE: Handling explicit move to backlog request');
-    }
-
     // EMERGENCY FIX: Check if we're in the middle of a drag operation
     if (isDraggingTask || isDraggingRef.current) {
-      console.log('DEBUG: Cannot move to quadrant while dragging tasks, ignoring request');
       return;
     }
 
@@ -886,7 +834,6 @@ export default function MatrixView({
 
     const task = currentLocalTasks.find(t => t.id === taskId);
     if (!task) {
-      console.log('DEBUG: Task not found:', taskId);
       return;
     }
 
@@ -897,13 +844,11 @@ export default function MatrixView({
 
     // If we're already in the target quadrant, no need to move
     if (currentQuadrant === targetQuadrant) {
-      console.log('DEBUG: Task already in target quadrant:', targetQuadrant);
       return;
     }
 
     // Set the updating flag
     isUpdatingRef.current = true;
-    console.log('Setting isUpdatingRef.current to true in handleMoveToQuadrant');
 
     // Create a copy of the task with updated properties
     const updatedTask = {
@@ -943,27 +888,23 @@ export default function MatrixView({
 
     setLocalTasks(updatedTasks);
 
-    console.log('Calling onTaskUpdate from handleMoveToQuadrant');
     const updatePromise = onTaskUpdate(updatedTasks);
 
     // Handle the promise properly
     updatePromise
       .then(() => {
-        console.log('Task update completed successfully in handleMoveToQuadrant');
+        // Task update completed successfully
       })
       .catch((error) => {
         console.error('Error updating task in handleMoveToQuadrant:', error);
       })
       .finally(() => {
-        console.log('Task update completed in handleMoveToQuadrant');
         pendingUpdatesRef.current.delete(updatedTask.id);
         isUpdatingRef.current = false; // Reset the updating flag
-        console.log('Reset isUpdatingRef.current to false in handleMoveToQuadrant');
 
         // Ensure the flag is reset even if there's an error or if the promise is not properly handled
         setTimeout(() => {
           if (isUpdatingRef.current) {
-            console.log('Ensuring isUpdatingRef.current is reset to false in handleMoveToQuadrant');
             isUpdatingRef.current = false;
           }
         }, 500); // Add a small delay to ensure any pending operations complete
@@ -979,12 +920,9 @@ export default function MatrixView({
   }, [taskToDelete, onTaskDelete]);
 
   // FINAL FIX: Create the function outside useEffect to avoid dependency issues
-  // EMERGENCY FIX: Replace with dummy function that only logs when called
+  // EMERGENCY FIX: Replace with dummy function that does nothing
   const manualSendAllToBacklog = useCallback(() => {
-    console.log('⚠️ ALERT: Matrix View "Send All to Backlog" function called!');
-    console.log('⚠️ Call stack:', new Error().stack);
-
-    // Intentionally do nothing - for debugging purposes
+    // Intentionally do nothing
   }, []);
 
   // CRITICAL FIX: Stop registering the function entirely - it's being called during component initialization

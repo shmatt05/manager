@@ -202,7 +202,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'Roboto', 'sans-serif'],
-        display: ['Inter', 'Google Sans', 'Roboto', 'sans-serif'],
+        display: ['Inter', 'Roboto', 'sans-serif'],
         mono: ['VT323', 'monospace'],
       },
       fontSize: {
