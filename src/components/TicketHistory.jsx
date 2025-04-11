@@ -3,12 +3,14 @@ import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, isFirebaseReady } from '../firebase';
+import { config } from '../config';
 
 export default function TicketHistory({ taskId }) {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const { user } = useAuth();
-  const isProd = import.meta.env.PROD;
+  // Use centralized config instead of direct env vars
+  const { isProd, useFirebase } = config;
 
   useEffect(() => {
     if (!taskId) return;
@@ -28,14 +30,14 @@ export default function TicketHistory({ taskId }) {
       }
     };
 
-    // Use localStorage for local development
-    if (!isProd) {
+    // Use localStorage for local development or when Firebase is disabled
+    if (!isProd || !useFirebase) {
       loadHistory();
       return;
     }
 
-    // Use Firestore for production
-    if (isProd) {
+    // Use Firestore for production when Firebase is enabled
+    if (isProd && useFirebase) {
       if (!isFirebaseReady()) {
         console.error('Firebase is not initialized');
         setError('Firebase initialization error');
@@ -50,7 +52,7 @@ export default function TicketHistory({ taskId }) {
       try {
         const historyRef = collection(db, `users/${user.uid}/taskHistory`);
         const q = query(historyRef, where('ticketData.id', '==', taskId));
-        
+
         const unsubscribe = onSnapshot(q, 
           (snapshot) => {
             const historyData = snapshot.docs.map(doc => ({
@@ -73,7 +75,7 @@ export default function TicketHistory({ taskId }) {
         setError(`Failed to initialize history: ${error.message}`);
       }
     }
-  }, [taskId, user, isProd]);
+  }, [taskId, user, isProd, useFirebase]);
 
   const getActionColor = (action) => {
     switch (action) {
@@ -111,7 +113,7 @@ export default function TicketHistory({ taskId }) {
                   {format(new Date(entry.timestamp), 'MMM d, yyyy • h:mm a')}
                 </span>
               </div>
-              
+
               {entry.changes && entry.changes.length > 0 && (
                 <div className="mt-3 text-sm border-t border-gray-100 dark:border-dark-surface-6 pt-3">
                   <p className="font-medium text-gray-700 dark:text-dark-text-primary mb-2">Changes:</p>

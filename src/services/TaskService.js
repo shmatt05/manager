@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, setDoc, deleteDoc, writeBatch, addDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, writeBatch, addDoc, getDocs } from 'firebase/firestore';
 import { db, isFirebaseReady } from '../firebase';
 
 // Add this at the top of the file
@@ -12,9 +12,7 @@ export const TaskService = {
    * Create a new task
    */
   createTask: async (newTask, user, isProd, tasks) => {
-    if (isProd && user) {
-      const db = getFirestore();
-
+    if (isProd && user && isFirebaseReady()) {
       // Create history entry for new task
       const historyEntry = TaskService.createHistoryEntry(newTask, 'CREATE', user.uid);
 
@@ -78,8 +76,7 @@ export const TaskService = {
           changes
         );
 
-        if (isProd && user) {
-          const db = getFirestore();
+        if (isProd && user && isFirebaseReady()) {
           const taskRef = doc(db, `users/${user.uid}/tasks/${normalizedTask.id}`);
           const historyRef = doc(db, `users/${user.uid}/taskHistory/${Date.now()}`);
 
@@ -94,8 +91,7 @@ export const TaskService = {
         }
       } else {
         // Even if no history changes, still save the task updates
-        if (isProd && user) {
-          const db = getFirestore();
+        if (isProd && user && isFirebaseReady()) {
           const taskRef = doc(db, `users/${user.uid}/tasks/${normalizedTask.id}`);
           await setDoc(taskRef, normalizedTask);
         } else {
@@ -117,9 +113,7 @@ export const TaskService = {
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) return tasks;
 
-    if (isProd && user) {
-      const db = getFirestore();
-
+    if (isProd && user && isFirebaseReady()) {
       // Create history entry for deletion
       const historyEntry = TaskService.createHistoryEntry(taskToDelete, 'DELETE', user.uid);
 
@@ -150,9 +144,7 @@ export const TaskService = {
       completedAt: task.status === 'completed' ? null : new Date().toISOString()
     };
 
-    if (isProd && user) {
-      const db = getFirestore();
-
+    if (isProd && user && isFirebaseReady()) {
       // Create history entry for completion
       const historyEntry = TaskService.createHistoryEntry(
         updatedTask, 
@@ -289,9 +281,8 @@ export const TaskService = {
     // First, we need the original tasks to compare for history
     let originalTasks = [];
     try {
-      if (isProd && user) {
+      if (isProd && user && isFirebaseReady()) {
         // In production, get original tasks from Firestore for comparison
-        const db = getFirestore();
         const tasksRef = collection(db, `users/${user.uid}/tasks`);
         const snapshot = await getDocs(tasksRef);
         originalTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -329,8 +320,7 @@ export const TaskService = {
     });
 
     // Update tasks and history
-    if (isProd && user) {
-      const db = getFirestore();
+    if (isProd && user && isFirebaseReady()) {
       const batch = writeBatch(db);
 
       // Add task updates to batch

@@ -1,4 +1,5 @@
 import { auth } from '../firebase';
+import { config } from '../config';
 
 // Local storage implementation
 const localStore = {
@@ -30,8 +31,8 @@ const storage = new Proxy({}, {
   }
 });
 
-// In production, load Firebase implementation
-if (import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true') {
+// In production with Firebase enabled, load Firebase implementation
+if (config.useFirebase) {
   console.log('[Storage] Loading Firebase implementation');
   let setupComplete = false;
 

@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import { format } from 'date-fns';
 import useTaskStore from '../stores/taskStore';
 import TaskCard from '../components/TaskCard';
-import { getFirestore, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { auth } from '../firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { auth, db, isFirebaseReady } from '../firebase';
+import { config } from '../config';
 
 export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTaskDelete, onTaskComplete }) {
-  const isProd = import.meta.env.PROD;
+  // Use centralized config instead of direct env vars
+  const { isProd, useFirebase } = config;
 
   const completedTasks = useMemo(() => {
     return tasks
@@ -16,7 +18,7 @@ export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTask
 
   const tasksByDate = useMemo(() => {
     const grouped = {};
-    
+
     completedTasks.forEach(task => {
       const date = format(new Date(task.completedAt), 'yyyy-MM-dd');
       if (!grouped[date]) {
@@ -24,7 +26,7 @@ export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTask
       }
       grouped[date].push(task);
     });
-    
+
     return grouped;
   }, [completedTasks]);
 
@@ -34,8 +36,7 @@ export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTask
     }
 
     try {
-      if (isProd && auth.currentUser) {
-        const db = getFirestore();
+      if (isProd && useFirebase && auth.currentUser && isFirebaseReady()) {
         const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks/${taskId}`);
         await deleteDoc(taskRef);
       } else {
@@ -59,7 +60,7 @@ export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTask
             Completed Tasks
           </h1>
         </div>
-        
+
         {completedTasks.length === 0 ? (
           <div className="bg-surface-50 dark:bg-dark-surface-2 shadow-dp2 dark:shadow-dp1 rounded-lg p-6 text-center">
             <div className="flex flex-col items-center justify-center py-8 text-surface-500 dark:text-dark-text-secondary">
@@ -81,7 +82,7 @@ export default function CompletedView({ tasks, onTaskClick, onTaskUpdate, onTask
                   </span>
                   <div className="ml-3 h-px flex-grow bg-surface-200 dark:bg-dark-surface-6"></div>
                 </div>
-                
+
                 {/* Tasks with Material Design cards */}
                 <div className="space-y-2">
                   {tasks.map(task => (

@@ -15,12 +15,11 @@ import clsx from 'clsx';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import TaskModal from '../components/TaskModal';
 import DeleteDialog from '../components/DeleteDialog';
-import { auth } from '../firebase';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { auth, db, isFirebaseReady } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useTour } from '../contexts/TourContext';
-
-const isFirebaseEnabled = import.meta.env.PROD && import.meta.env.VITE_USE_FIREBASE === 'true';
+import { config } from '../config';
 
 // Google/Meta style quadrant definition with Material Design colors
 const QUADRANTS = {
@@ -346,12 +345,11 @@ export default function MatrixView({
   const updateTask = useTaskStore(state => state.updateTask);
 
   useEffect(() => {
-    if (!import.meta.env.PROD || !auth?.currentUser) {
+    if (!config.useFirebase || !auth?.currentUser || !isFirebaseReady()) {
       setLoading(false);
       return;
     }
 
-    const db = getFirestore();
     const tasksRef = collection(db, `users/${auth.currentUser.uid}/tasks`);
 
     const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
@@ -362,6 +360,7 @@ export default function MatrixView({
       useTaskStore.getState().setTasks(tasksData);
       setLoading(false);
     }, (error) => {
+      console.error('Error fetching tasks:', error);
       setLoading(false);
     });
 
