@@ -12,28 +12,58 @@ export const TaskService = {
    * Create a new task
    */
   createTask: async (newTask, user, isProd, tasks) => {
+    // Set order to 0 for new task to ensure it appears at the top
+    const taskWithOrder = {
+      ...newTask,
+      order: 0
+    };
+
     if (isProd && user && isFirebaseReady()) {
       // Create history entry for new task
-      const historyEntry = TaskService.createHistoryEntry(newTask, 'CREATE', user.uid);
+      const historyEntry = TaskService.createHistoryEntry(taskWithOrder, 'CREATE', user.uid);
 
-      await Promise.all([
-        setDoc(doc(db, `users/${user.uid}/tasks/${newTask.id}`), {
-          ...newTask,
-          userId: user.uid,
-          updatedAt: new Date().toISOString()
-        }),
-        setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
-      ]);
+      // Increment order of all existing tasks to make room for the new task at the top
+      const updatedTasks = tasks.map(task => ({
+        ...task,
+        order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
+      }));
+
+      // Create a batch to update all tasks
+      const batch = writeBatch(db);
+
+      // Add new task to batch
+      batch.set(doc(db, `users/${user.uid}/tasks/${taskWithOrder.id}`), {
+        ...taskWithOrder,
+        userId: user.uid,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Add history entry to batch
+      batch.set(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry);
+
+      // Update order of existing tasks
+      updatedTasks.forEach(task => {
+        batch.set(doc(db, `users/${user.uid}/tasks/${task.id}`), task);
+      });
+
+      // Commit the batch
+      await batch.commit();
 
       // Return the updated tasks array with new task at the beginning
-      return [newTask, ...tasks];
+      return [taskWithOrder, ...updatedTasks];
     } else {
       // Local storage handling
-      const newTasks = [newTask, ...tasks];
+      // Update order of existing tasks
+      const updatedTasks = tasks.map(task => ({
+        ...task,
+        order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
+      }));
+
+      const newTasks = [taskWithOrder, ...updatedTasks];
       localStorage.setItem('tasks', JSON.stringify(newTasks));
 
       // Add history entry
-      const historyEntry = TaskService.createHistoryEntry(newTask, 'CREATE', 'local-user');
+      const historyEntry = TaskService.createHistoryEntry(taskWithOrder, 'CREATE', 'local-user');
       TaskService.saveHistoryToLocalStorage(historyEntry);
 
       return newTasks;
@@ -299,8 +329,15 @@ export const TaskService = {
     // Track history entries for changed tasks
     const historyEntries = [];
 
+    // Update order field for each task based on its position in the array
+    const tasksWithOrder = updatedTasks.map((task, index) => ({
+      ...task,
+      order: index,
+      updatedAt: new Date().toISOString()
+    }));
+
     // Find changes for each task
-    updatedTasks.forEach(updatedTask => {
+    tasksWithOrder.forEach(updatedTask => {
       const originalTask = originalTasks.find(t => t.id === updatedTask.id);
       if (!originalTask) return; // Skip if no original task (shouldn't happen)
 
@@ -324,7 +361,7 @@ export const TaskService = {
       const batch = writeBatch(db);
 
       // Add task updates to batch
-      updatedTasks.forEach(task => {
+      tasksWithOrder.forEach(task => {
         const taskRef = doc(db, `users/${user.uid}/tasks/${task.id}`);
         batch.set(taskRef, task);
       });
@@ -348,7 +385,7 @@ export const TaskService = {
       }
     } else {
       // Update localStorage
-      localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+      localStorage.setItem('tasks', JSON.stringify(tasksWithOrder));
 
       // Add history entries to localStorage
       historyEntries.forEach(entry => {
@@ -356,7 +393,7 @@ export const TaskService = {
       });
     }
 
-    return updatedTasks;
+    return tasksWithOrder;
   },
 
   /**

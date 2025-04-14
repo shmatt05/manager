@@ -303,14 +303,43 @@ function AppContent() {
           ...doc.data(),
           id: doc.id
         }));
-        setTasks(tasksData);
+
+        // Sort tasks by order field if it exists, otherwise maintain the order from Firebase
+        const sortedTasks = [...tasksData].sort((a, b) => {
+          // If both tasks have order field, sort by order
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          // If only one task has order field, prioritize the one with order
+          if (a.order !== undefined) return -1;
+          if (b.order !== undefined) return 1;
+          // Default to creation time (newest first) if no order field
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+
+        setTasks(sortedTasks);
       });
 
       return () => unsubscribe();
     } else {
       const savedTasks = localStorage.getItem('tasks');
       if (savedTasks) {
-        setTasks(JSON.parse(savedTasks));
+        const tasksData = JSON.parse(savedTasks);
+
+        // Sort tasks by order field if it exists, otherwise maintain the order from localStorage
+        const sortedTasks = [...tasksData].sort((a, b) => {
+          // If both tasks have order field, sort by order
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          // If only one task has order field, prioritize the one with order
+          if (a.order !== undefined) return -1;
+          if (b.order !== undefined) return 1;
+          // Default to creation time (newest first) if no order field
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+
+        setTasks(sortedTasks);
       }
     }
   }, [useFirebase, user, lastLocalUpdate]);
