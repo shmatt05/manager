@@ -6,7 +6,7 @@ import HistoryEntry from '../components/HistoryEntry';
 import { config } from '../config';
 import { db, isFirebaseReady } from '../firebase';
 
-export default function HistoryView() {
+export default function HistoryView({ boardId = 'default' }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,7 +44,20 @@ export default function HistoryView() {
     if (!useFirebase) {
       try {
         const localHistory = JSON.parse(localStorage.getItem('taskHistory') || '[]');
-        setHistory(localHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+
+        // Filter history entries by boardId
+        const filteredHistory = localHistory.filter(entry => {
+          // Check if the entry has ticketData with a boardId
+          if (entry.ticketData && (
+              entry.ticketData.boardId === boardId || 
+              (!entry.ticketData.boardId && boardId === 'default')
+          )) {
+            return true;
+          }
+          return false;
+        });
+
+        setHistory(filteredHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
         setLoading(false);
       } catch (error) {
         console.error('Error loading history from localStorage:', error);
@@ -72,7 +85,20 @@ export default function HistoryView() {
               id: doc.id,
               ...doc.data()
             }));
-            setHistory(historyData);
+
+            // Filter history entries by boardId
+            const filteredHistory = historyData.filter(entry => {
+              // Check if the entry has ticketData with a boardId
+              if (entry.ticketData && (
+                  entry.ticketData.boardId === boardId || 
+                  (!entry.ticketData.boardId && boardId === 'default')
+              )) {
+                return true;
+              }
+              return false;
+            });
+
+            setHistory(filteredHistory);
             setLoading(false);
           }, 
           (error) => {
@@ -91,7 +117,7 @@ export default function HistoryView() {
     } else {
       setLoading(false);
     }
-  }, [user, useFirebase]);
+  }, [user, useFirebase, boardId]);
 
   const getActionColor = (action) => {
     switch (action) {
@@ -113,7 +139,19 @@ export default function HistoryView() {
         ? [...history] 
         : JSON.parse(localStorage.getItem('taskHistory') || '[]');
 
-      // Apply filters if requested
+      // Always filter by boardId
+      historyToExport = historyToExport.filter(entry => {
+        // Check if the entry has ticketData with a boardId
+        if (entry.ticketData && (
+            entry.ticketData.boardId === boardId || 
+            (!entry.ticketData.boardId && boardId === 'default')
+        )) {
+          return true;
+        }
+        return false;
+      });
+
+      // Apply additional filters if requested
       if (filtered) {
         // Filter by date range if needed
         if (dateRange.from && dateRange.to) {
@@ -142,7 +180,7 @@ export default function HistoryView() {
       const url = URL.createObjectURL(historyBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `task-history-${format(new Date(), 'yyyy-MM-dd-HH-mm')}.json`;
+      link.download = `task-history-board-${boardId}-${format(new Date(), 'yyyy-MM-dd-HH-mm')}.json`;
 
       // Trigger download
       document.body.appendChild(link);

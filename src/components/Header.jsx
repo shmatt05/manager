@@ -5,6 +5,7 @@ import { useTour } from '../contexts/TourContext';
 import clsx from 'clsx';
 import { SunIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import DayPlannerModal from './DayPlannerModal';
+import BoardTabs from './BoardTabs';
 
 function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, backlogTasks, onTaskDecision, tourEnabled }) {
   const [isDayPlannerOpen, setIsDayPlannerOpen] = useState(false);
@@ -152,7 +153,15 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
         </div>
       </header>
 
-      <nav className="bg-white dark:bg-[#1A1A1F] px-2 pt-0.5 pb-0">
+      {/* Board tabs */}
+      <div className="bg-white dark:bg-[#1A1A1F] px-2 pt-2 pb-0">
+        <div className="max-w-6xl mx-auto w-full">
+          <BoardTabs activeTab={activeTab} onTabChange={onTabChange} />
+        </div>
+      </div>
+
+      {/* View tabs */}
+      <nav className="bg-white dark:bg-[#1A1A1F] px-2 pt-1 pb-0">
         <div className="max-w-6xl mx-auto w-full flex gap-3">
           {tabs.map(tab => (
             <button
@@ -183,4 +192,4 @@ function Header({ children, tabs, activeTab, onTabChange, onSendAllToBacklog, ba
   );
 }
 
-export default Header; 
+export default Header;

@@ -11,22 +11,29 @@ export const TaskService = {
   /**
    * Create a new task
    */
-  createTask: async (newTask, user, isProd, tasks) => {
+  createTask: async (newTask, user, isProd, tasks, boardId) => {
     // Set order to 0 for new task to ensure it appears at the top
+    // Include boardId to associate task with a board
     const taskWithOrder = {
       ...newTask,
-      order: 0
+      order: 0,
+      boardId: boardId || newTask.boardId || 'default'
     };
 
     if (isProd && user && isFirebaseReady()) {
       // Create history entry for new task
       const historyEntry = TaskService.createHistoryEntry(taskWithOrder, 'CREATE', user.uid);
 
-      // Increment order of all existing tasks to make room for the new task at the top
-      const updatedTasks = tasks.map(task => ({
-        ...task,
-        order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
-      }));
+      // Increment order of all existing tasks in the same board to make room for the new task at the top
+      const updatedTasks = tasks.map(task => {
+        if (task.boardId === taskWithOrder.boardId) {
+          return {
+            ...task,
+            order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
+          };
+        }
+        return task;
+      });
 
       // Create a batch to update all tasks
       const batch = writeBatch(db);
@@ -43,7 +50,9 @@ export const TaskService = {
 
       // Update order of existing tasks
       updatedTasks.forEach(task => {
-        batch.set(doc(db, `users/${user.uid}/tasks/${task.id}`), task);
+        if (task.boardId === taskWithOrder.boardId) {
+          batch.set(doc(db, `users/${user.uid}/tasks/${task.id}`), task);
+        }
       });
 
       // Commit the batch
@@ -53,11 +62,16 @@ export const TaskService = {
       return [taskWithOrder, ...updatedTasks];
     } else {
       // Local storage handling
-      // Update order of existing tasks
-      const updatedTasks = tasks.map(task => ({
-        ...task,
-        order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
-      }));
+      // Update order of existing tasks in the same board
+      const updatedTasks = tasks.map(task => {
+        if (task.boardId === taskWithOrder.boardId) {
+          return {
+            ...task,
+            order: (task.order !== undefined ? task.order + 1 : tasks.indexOf(task) + 1)
+          };
+        }
+        return task;
+      });
 
       const newTasks = [taskWithOrder, ...updatedTasks];
       localStorage.setItem('tasks', JSON.stringify(newTasks));
@@ -73,7 +87,7 @@ export const TaskService = {
   /**
    * Update an existing task
    */
-  updateTask: async (updatedTask, tasks, user, isProd) => {
+  updateTask: async (updatedTask, tasks, user, isProd, boardId) => {
     try {
       const existingTaskIndex = tasks.findIndex(t => t.id === updatedTask.id);
       if (existingTaskIndex === -1) {
@@ -84,15 +98,26 @@ export const TaskService = {
       const updatedTasks = [...tasks];
 
       // Normalize the task data to ensure we have consistent fields
+      // Include boardId to maintain board association
       const normalizedTask = {
         ...updatedTask,
         description: updatedTask.description || updatedTask.details || existingTask.description || existingTask.details || '',
         details: updatedTask.description || updatedTask.details || existingTask.description || existingTask.details || '',
+        boardId: updatedTask.boardId || existingTask.boardId || boardId || 'default',
         updatedAt: new Date().toISOString()
       };
 
       // Use our helper to detect changes
       const changes = TaskService.detectTaskChanges(existingTask, normalizedTask);
+
+      // Check if board has changed
+      if (existingTask.boardId !== normalizedTask.boardId) {
+        changes.push({
+          field: 'Board',
+          oldValue: existingTask.boardId || 'default',
+          newValue: normalizedTask.boardId
+        });
+      }
 
       updatedTasks[existingTaskIndex] = normalizedTask;
 
@@ -143,9 +168,15 @@ export const TaskService = {
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) return tasks;
 
+    // Ensure the task has a boardId
+    const taskWithBoard = {
+      ...taskToDelete,
+      boardId: taskToDelete.boardId || 'default'
+    };
+
     if (isProd && user && isFirebaseReady()) {
       // Create history entry for deletion
-      const historyEntry = TaskService.createHistoryEntry(taskToDelete, 'DELETE', user.uid);
+      const historyEntry = TaskService.createHistoryEntry(taskWithBoard, 'DELETE', user.uid);
 
       await Promise.all([
         deleteDoc(doc(db, `users/${user.uid}/tasks/${taskId}`)),
@@ -156,7 +187,7 @@ export const TaskService = {
       localStorage.setItem('tasks', JSON.stringify(tasks.filter(t => t.id !== taskId)));
 
       // Add history entry
-      const historyEntry = TaskService.createHistoryEntry(taskToDelete, 'DELETE', 'local-user');
+      const historyEntry = TaskService.createHistoryEntry(taskWithBoard, 'DELETE', 'local-user');
       TaskService.saveHistoryToLocalStorage(historyEntry);
     }
 
@@ -168,10 +199,13 @@ export const TaskService = {
    * Toggle task completion status
    */
   toggleTaskComplete: async (task, tasks, user, isProd) => {
+    // Ensure the task has a boardId
     const updatedTask = {
       ...task,
       status: task.status === 'completed' ? 'active' : 'completed',
-      completedAt: task.status === 'completed' ? null : new Date().toISOString()
+      completedAt: task.status === 'completed' ? null : new Date().toISOString(),
+      boardId: task.boardId || 'default',
+      updatedAt: new Date().toISOString()
     };
 
     if (isProd && user && isFirebaseReady()) {
@@ -190,8 +224,7 @@ export const TaskService = {
       await Promise.all([
         setDoc(doc(db, `users/${user.uid}/tasks/${task.id}`), {
           ...updatedTask,
-          userId: user.uid,
-          updatedAt: new Date().toISOString()
+          userId: user.uid
         }),
         setDoc(doc(db, `users/${user.uid}/taskHistory/${Date.now()}`), historyEntry)
       ]);
@@ -236,7 +269,8 @@ export const TaskService = {
       { key: 'details', label: 'Details' },
       { key: 'priority', label: 'Priority' },
       { key: 'status', label: 'Status' },
-      { key: 'scheduledFor', label: 'Scheduled For' }
+      { key: 'scheduledFor', label: 'Scheduled For' },
+      { key: 'boardId', label: 'Board' }
     ];
 
     // Check for regular field changes
@@ -300,7 +334,7 @@ export const TaskService = {
    * This is critical for drag-and-drop to avoid ghost animations
    * Now with history tracking for moved tasks
    */
-  bulkUpdateTasks: async (updatedTasks, user, isProd, lastLocalUpdate, setLastLocalUpdate) => {
+  bulkUpdateTasks: async (updatedTasks, user, isProd, lastLocalUpdate, setLastLocalUpdate, boardId) => {
     // Debounce bulk updates - prevent multiple updates within 1000ms
     const now = Date.now();
     if (now - lastBulkUpdateTime < 1000) {
@@ -330,11 +364,28 @@ export const TaskService = {
     const historyEntries = [];
 
     // Update order field for each task based on its position in the array
-    const tasksWithOrder = updatedTasks.map((task, index) => ({
-      ...task,
-      order: index,
-      updatedAt: new Date().toISOString()
-    }));
+    // Group tasks by boardId to maintain proper ordering within each board
+    const tasksByBoard = {};
+    updatedTasks.forEach(task => {
+      const taskBoardId = task.boardId || 'default';
+      if (!tasksByBoard[taskBoardId]) {
+        tasksByBoard[taskBoardId] = [];
+      }
+      tasksByBoard[taskBoardId].push(task);
+    });
+
+    // Update order for each task within its board
+    let tasksWithOrder = [];
+    Object.keys(tasksByBoard).forEach(boardId => {
+      const boardTasks = tasksByBoard[boardId];
+      const boardTasksWithOrder = boardTasks.map((task, index) => ({
+        ...task,
+        boardId: boardId, // Ensure boardId is set
+        order: index,
+        updatedAt: new Date().toISOString()
+      }));
+      tasksWithOrder = [...tasksWithOrder, ...boardTasksWithOrder];
+    });
 
     // Find changes for each task
     tasksWithOrder.forEach(updatedTask => {

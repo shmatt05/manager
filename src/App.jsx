@@ -4,7 +4,7 @@ import MatrixView from './views/MatrixView'
 import CompletedView from './views/CompletedView'
 import TaskCreate from './components/TaskCreate'
 import TaskModal from './components/TaskModal'
-import { getFirestore, collection, onSnapshot } from 'firebase/firestore'
+import { getFirestore, collection, onSnapshot, query, where } from 'firebase/firestore'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { TourProvider, useTour } from './contexts/TourContext'
 import Joyride from 'react-joyride'
@@ -12,8 +12,11 @@ import Login from './components/Login'
 import HistoryView from './views/HistoryView'
 import Header from './components/Header'
 import { TaskService } from './services/TaskService'
+import { BoardService } from './services/BoardService'
 import { config } from './config'
 import StepThreeTooltip from './components/Tour/StepThreeTooltip'
+import useBoardStore from './stores/boardStore'
+import useTaskStore from './stores/taskStore'
 
 const queryClient = new QueryClient()
 
@@ -31,6 +34,8 @@ function AppContent() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [lastLocalUpdate, setLastLocalUpdate] = useState(null)
+  const [boards, setBoards] = useState([])
+  const [isLoadingBoards, setIsLoadingBoards] = useState(true)
   // No longer using sendAllToBacklogFn - functionality has been moved to direct button click
   // Remove the backlogOperationActive state as it was causing an infinite loop
 
@@ -40,6 +45,52 @@ function AppContent() {
 
   // Get tour state and callbacks from TourContext
   const { isTourOpen, tourStep, tourSteps, handleJoyrideCallback, nextStep, prevStep } = useTour();
+
+  // Get board store state and actions
+  const { activeBoard, initializeBoards, setBoards: setBoardsInStore } = useBoardStore();
+
+  // Initialize boards
+  useEffect(() => {
+    const initBoards = async () => {
+      if (loading) return;
+
+      try {
+        // Initialize the board store
+        const activeBoardId = initializeBoards();
+
+        if (useFirebase && user) {
+          // Load boards from Firebase
+          const loadedBoards = await BoardService.getBoards(user, isProd);
+
+          if (loadedBoards.length === 0) {
+            // Create a default board if none exists
+            const defaultBoard = {
+              id: 'default',
+              name: 'Default Board',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              order: 0
+            };
+
+            await BoardService.createBoard(defaultBoard, user, isProd);
+            setBoardsInStore([defaultBoard]);
+            setBoards([defaultBoard]);
+          } else {
+            // Sort boards by order
+            const sortedBoards = [...loadedBoards].sort((a, b) => a.order - b.order);
+            setBoardsInStore(sortedBoards);
+            setBoards(sortedBoards);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing boards:', error);
+      } finally {
+        setIsLoadingBoards(false);
+      }
+    };
+
+    initBoards();
+  }, [user, loading, isProd, useFirebase, initializeBoards, setBoardsInStore]);
 
   // Listen for tour:close-modal event to close the modal when moving from step 3 to step 4
   useEffect(() => {
@@ -105,11 +156,21 @@ function AppContent() {
 
   // FINAL FIX: Proper implementation that accepts tasks array
   const handleSendAllToBacklog = useCallback((updatedTasks) => {
+    // Get the active board ID
+    const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
     // If we get an array of tasks, use that directly
     if (Array.isArray(updatedTasks) && updatedTasks.length > 0) {
       console.log("Processing explicit 'Send All to Backlog' with provided tasks array");
+
+      // Ensure all tasks have a boardId (use existing or active board)
+      const tasksWithBoard = updatedTasks.map(task => ({
+        ...task,
+        boardId: task.boardId || activeBoardId
+      }));
+
       // Use bulk update to process changes
-      TaskService.bulkUpdateTasks(updatedTasks, user, isProd, lastLocalUpdate, setLastLocalUpdate)
+      TaskService.bulkUpdateTasks(tasksWithBoard, user, isProd, lastLocalUpdate, setLastLocalUpdate, activeBoardId)
         .then((result) => {
           setTasks(result);
           console.log("Successfully moved tasks to backlog");
@@ -123,9 +184,11 @@ function AppContent() {
     // Otherwise, process tasks from the current state (fallback)
     console.log("Processing 'Send All to Backlog' request");
 
-    // Find non-backlog, non-completed tasks
+    // Find non-backlog, non-completed tasks in the active board
     const tasksToMove = tasks.filter(task => 
-      task.status !== 'completed' && task.scheduledFor !== 'backlog'
+      task.status !== 'completed' && 
+      task.scheduledFor !== 'backlog' &&
+      (task.boardId === activeBoardId || (!task.boardId && activeBoardId === 'default'))
     );
 
     if (tasksToMove.length === 0) {
@@ -137,7 +200,9 @@ function AppContent() {
 
     // Create updated tasks
     const updatedTaskList = tasks.map(task => {
-      if (task.status !== 'completed' && task.scheduledFor !== 'backlog') {
+      if (task.status !== 'completed' && 
+          task.scheduledFor !== 'backlog' &&
+          (task.boardId === activeBoardId || (!task.boardId && activeBoardId === 'default'))) {
         // Remove existing quadrant tags
         const quadrantTags = ['do', 'schedule', 'delegate', 'eliminate', 'backlog'];
         const filteredTags = task.tags.filter(tag => !quadrantTags.includes(tag));
@@ -147,6 +212,7 @@ function AppContent() {
           scheduledFor: 'backlog',
           priority: 5,
           tags: [...new Set([...filteredTags, 'backlog'])],
+          boardId: task.boardId || activeBoardId,
           updatedAt: new Date().toISOString()
         };
       }
@@ -154,7 +220,7 @@ function AppContent() {
     });
 
     // Update tasks
-    TaskService.bulkUpdateTasks(updatedTaskList, user, isProd, lastLocalUpdate, setLastLocalUpdate)
+    TaskService.bulkUpdateTasks(updatedTaskList, user, isProd, lastLocalUpdate, setLastLocalUpdate, activeBoardId)
       .then((result) => {
         setTasks(result);
         console.log("Successfully moved all tasks to backlog");
@@ -233,7 +299,16 @@ function AppContent() {
         updatedTask = taskToSave;
       }
 
-      const updatedTasks = await TaskService.updateTask(updatedTask, tasks, user, isProd);
+      // Get the active board ID
+      const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
+      // Ensure the task has a boardId (use existing or active board)
+      const taskWithBoard = {
+        ...updatedTask,
+        boardId: updatedTask.boardId || activeBoardId
+      };
+
+      const updatedTasks = await TaskService.updateTask(taskWithBoard, tasks, user, isProd, activeBoardId);
       setTasks(updatedTasks);
       setIsModalOpen(false);
       setSelectedTask(null);
@@ -244,8 +319,24 @@ function AppContent() {
 
   const handleDeleteTask = async (taskId) => {
     try {
-      const updatedTasks = await TaskService.deleteTask(taskId, tasks, user, isProd);
-      setTasks(updatedTasks);
+      // Get the task to delete
+      const taskToDelete = tasks.find(t => t.id === taskId);
+      if (!taskToDelete) return;
+
+      // Get the active board ID
+      const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
+      // Ensure the task has a boardId (use existing or active board)
+      const taskWithBoard = {
+        ...taskToDelete,
+        boardId: taskToDelete.boardId || activeBoardId
+      };
+
+      // Only delete if the task belongs to the active board
+      if (taskWithBoard.boardId === activeBoardId || (taskWithBoard.boardId === 'default' && activeBoardId === 'default')) {
+        const updatedTasks = await TaskService.deleteTask(taskId, tasks, user, isProd);
+        setTasks(updatedTasks);
+      }
     } catch (error) {
       console.error('Error deleting task:', error);
     }
@@ -253,7 +344,16 @@ function AppContent() {
 
   const handleTaskComplete = async (task) => {
     try {
-      const updatedTasks = await TaskService.toggleTaskComplete(task, tasks, user, isProd);
+      // Get the active board ID
+      const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
+      // Ensure the task has a boardId (use existing or active board)
+      const taskWithBoard = {
+        ...task,
+        boardId: task.boardId || activeBoardId
+      };
+
+      const updatedTasks = await TaskService.toggleTaskComplete(taskWithBoard, tasks, user, isProd);
       setTasks(updatedTasks);
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -262,7 +362,11 @@ function AppContent() {
 
   const handleCreateTask = async (newTask) => {
     try {
-      const updatedTasks = await TaskService.createTask(newTask, user, isProd, tasks);
+      // Get the active board ID
+      const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
+      // Create the task with the active board ID
+      const updatedTasks = await TaskService.createTask(newTask, user, isProd, tasks, activeBoardId);
       setTasks(updatedTasks);
 
       // Dispatch tour:add-task event for the tour to track the newly created task
@@ -278,7 +382,16 @@ function AppContent() {
 
   const handleTasksUpdate = async (updatedTasks) => {
     try {
-      const result = await TaskService.bulkUpdateTasks(updatedTasks, user, isProd, lastLocalUpdate, setLastLocalUpdate);
+      // Get the active board ID
+      const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+
+      // Ensure all tasks have a boardId (use existing or active board)
+      const tasksWithBoard = updatedTasks.map(task => ({
+        ...task,
+        boardId: task.boardId || activeBoardId
+      }));
+
+      const result = await TaskService.bulkUpdateTasks(tasksWithBoard, user, isProd, lastLocalUpdate, setLastLocalUpdate, activeBoardId);
       setTasks(result);
     } catch (error) {
       console.error('Error updating tasks:', error);
@@ -286,12 +399,34 @@ function AppContent() {
     }
   };
 
+  // Watch for changes to the active board
+  useEffect(() => {
+    // When the active board changes, update the tasks
+    if (activeBoard && tasks.length > 0) {
+      // Filter tasks for the active board
+      const filteredTasks = tasks.filter(task => 
+        task.boardId === activeBoard || 
+        (!task.boardId && activeBoard === 'default')
+      );
+
+      // If we have filtered tasks, update the task store
+      if (filteredTasks.length !== tasks.length) {
+        useTaskStore.getState().setTasks(tasks);
+      }
+    }
+  }, [activeBoard, tasks]);
+
+  // Load tasks from Firebase or localStorage
   useEffect(() => {
     if (useFirebase && user) {
       const db = getFirestore();
       const tasksRef = collection(db, `users/${user.uid}/tasks`);
 
-      const unsubscribe = onSnapshot(tasksRef, (snapshot) => {
+      // Create a query to get all tasks (we'll filter by board ID in memory)
+      // This allows us to efficiently handle board switching without re-fetching
+      const tasksQuery = query(tasksRef);
+
+      const unsubscribe = onSnapshot(tasksQuery, (snapshot) => {
         const currentTime = new Date().getTime();
 
         // Ignore updates that happen within 2 seconds of a local update
@@ -301,7 +436,8 @@ function AppContent() {
 
         const tasksData = snapshot.docs.map(doc => ({
           ...doc.data(),
-          id: doc.id
+          id: doc.id,
+          boardId: doc.data().boardId || 'default' // Ensure all tasks have a boardId
         }));
 
         // Sort tasks by order field if it exists, otherwise maintain the order from Firebase
@@ -317,6 +453,10 @@ function AppContent() {
           return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         });
 
+        // Update the task store
+        useTaskStore.getState().setTasks(sortedTasks);
+
+        // Update the local state
         setTasks(sortedTasks);
       });
 
@@ -326,8 +466,14 @@ function AppContent() {
       if (savedTasks) {
         const tasksData = JSON.parse(savedTasks);
 
+        // Ensure all tasks have a boardId
+        const tasksWithBoard = tasksData.map(task => ({
+          ...task,
+          boardId: task.boardId || 'default'
+        }));
+
         // Sort tasks by order field if it exists, otherwise maintain the order from localStorage
-        const sortedTasks = [...tasksData].sort((a, b) => {
+        const sortedTasks = [...tasksWithBoard].sort((a, b) => {
           // If both tasks have order field, sort by order
           if (a.order !== undefined && b.order !== undefined) {
             return a.order - b.order;
@@ -339,10 +485,14 @@ function AppContent() {
           return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         });
 
+        // Update the task store
+        useTaskStore.getState().setTasks(sortedTasks);
+
+        // Update the local state
         setTasks(sortedTasks);
       }
     }
-  }, [useFirebase, user, lastLocalUpdate]);
+  }, [useFirebase, user, lastLocalUpdate, activeBoard]);
 
   // Force position the tooltip for step 3
   useEffect(() => {
@@ -441,6 +591,29 @@ function AppContent() {
     }
   };
 
+  // Filter tasks by active board
+  const activeBoardId = useBoardStore.getState().activeBoard || 'default';
+  const filteredTasks = tasks.filter(task => 
+    task.boardId === activeBoardId || 
+    (!task.boardId && activeBoardId === 'default')
+  );
+
+  // Filter backlog tasks for the active board
+  const filteredBacklogTasks = backlogTasks.filter(task => 
+    task.boardId === activeBoardId || 
+    (!task.boardId && activeBoardId === 'default')
+  );
+
+  // Loading state for boards
+  if (isLoadingBoards) {
+    return <div className="flex items-center justify-center h-screen bg-blue-50 dark:bg-dark-background">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-300">Loading boards...</p>
+      </div>
+    </div>;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-blue-50 dark:bg-dark-background noise-texture">
       {/* Custom Step Three Tooltip */}
@@ -498,7 +671,7 @@ function AppContent() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onSendAllToBacklog={handleSendAllToBacklog}
-        backlogTasks={backlogTasks}
+        backlogTasks={filteredBacklogTasks}
         onTaskDecision={handleDayPlannerDecision}
         tourEnabled={isTourOpen} // Pass tour state to Header
       >
@@ -508,7 +681,7 @@ function AppContent() {
       <main className="flex-1 overflow-auto scrollbar-subtle">
         {activeTab === 'matrix' ? (
           <MatrixView 
-            tasks={tasks}
+            tasks={filteredTasks}
             onTaskClick={handleTaskClick}
             onTaskUpdate={handleTasksUpdate}
             onTaskSave={handleTaskSave}
@@ -518,14 +691,14 @@ function AppContent() {
           />
         ) : activeTab === 'completed' ? (
           <CompletedView 
-            tasks={tasks}
+            tasks={filteredTasks}
             onTaskClick={handleTaskClick}
             onTaskUpdate={handleTaskSave}
             onTaskDelete={handleDeleteTask}
             onTaskComplete={handleTaskComplete}
           />
         ) : (
-          <HistoryView />
+          <HistoryView boardId={activeBoardId} />
         )}
       </main>
 
